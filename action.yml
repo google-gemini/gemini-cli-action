@@ -1,0 +1,26 @@
+name: 'Gemini CLI Action'
+description: 'Uses the Gemini CLI to automate software development tasks.'
+author: 'Gemini'
+
+inputs:
+  GEMINI_API_KEY:
+    description: 'Your Gemini API key.'
+    required: true
+  prompt:
+    description: 'A specific prompt to guide Gemini.'
+    required: false
+    default: 'You are a helpful assistant.'
+
+runs:
+  using: "composite"
+  steps:
+    - run: npm install -g @google/gemini-cli
+      shell: bash
+    - run: gemini --yolo --prompt "${{ inputs.prompt }}"
+      shell: bash
+      env:
+        GEMINI_API_KEY: ${{ inputs.GEMINI_API_KEY }}
+
+branding:
+  icon: 'terminal'
+  color: 'blue'
