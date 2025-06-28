@@ -30,8 +30,11 @@ Here are some of the available examples:
 
 ## Inputs
 
-- `GEMINI_API_KEY` (required): Your Gemini API key, stored as a GitHub secret.
 - `prompt` (optional): A specific, multi-line prompt to guide Gemini's behavior. This is where you define the persona, workflow, and instructions for the model. The default is `'You are a helpful assistant.'`.
+- `GEMINI_API_KEY` (required): Your Gemini API key, stored as a GitHub secret.
+- `OTLP_GCP_WIF_PROVIDER` (optional): The workload identity provider for GCP authentication.
+- `OTLP_GCP_SERVICE_ACCOUNT` (optional): The service account for GCP authentication.
+- `OTLP_GOOGLE_CLOUD_PROJECT` (optional): The Google Cloud project for telemetry.
 
 ## Authentication
 
@@ -46,6 +49,12 @@ When you create your GitHub App, you must grant it the correct permissions for y
 **Important**: The permissions above are a baseline for the examples. If you create custom workflows that interact with the GitHub API in other ways (e.g., modifying projects, creating branches, managing deployments), you must update your GitHub App's permissions to grant the necessary access. Always follow the principle of least privilege, granting only the permissions your specific workflow requires.
 
 For more information on creating and using GitHub Apps, see the [documentation](https://docs.github.com/en/developers/apps).
+
+## Observability with OpenTelemetry
+
+This action can be configured to send telemetry data to your own Google Cloud project for observability. This allows you to monitor the performance and behavior of the Gemini CLI within your workflows.
+
+For detailed instructions on how to set up and configure observability, please see the [Observability documentation](./docs/observability.md).
 
 ## Customization
 
