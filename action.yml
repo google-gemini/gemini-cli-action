@@ -3,17 +3,42 @@ description: 'Uses the Gemini CLI to automate software development tasks.'
 author: 'Gemini'
 
 inputs:
-  GEMINI_API_KEY:
-    description: 'Your Gemini API key.'
-    required: true
   prompt:
     description: 'A specific prompt to guide Gemini.'
     required: false
     default: 'You are a helpful assistant.'
+  GEMINI_API_KEY:
+    description: 'Your Gemini API key.'
+    required: true
+  OTLP_GCP_WIF_PROVIDER:
+    description: 'The workload identity provider for GCP authentication.'
+    required: false
+  OTLP_GCP_SERVICE_ACCOUNT:
+    description: 'The service account for GCP authentication.'
+    required: false
+  OTLP_GOOGLE_CLOUD_PROJECT:
+    description: 'The Google Cloud project for telemetry.'
+    required: false
 
 runs:
   using: "composite"
   steps:
+    - name: Authenticate to Google Cloud for Telemetry 
+      if: inputs.OTLP_GCP_WIF_PROVIDER != ''
+      id: auth
+      uses: 'google-github-actions/auth@v2'
+      with:
+        project_id: ${{ inputs.OTLP_GOOGLE_CLOUD_PROJECT }}
+        workload_identity_provider: ${{ inputs.OTLP_GCP_WIF_PROVIDER }}
+        service_account: ${{ inputs.OTLP_GCP_SERVICE_ACCOUNT }}
+
+    - name: Run Telemetry Collector for Google Cloud
+      if: inputs.OTLP_GCP_WIF_PROVIDER != ''
+      run: node scripts/telemetry.js &
+      shell: bash
+      env:
+        OTLP_GOOGLE_CLOUD_PROJECT: ${{ inputs.OTLP_GOOGLE_CLOUD_PROJECT }}
+
     - run: npm install -g @google/gemini-cli
       shell: bash
     - run: gemini --yolo --prompt "${{ inputs.prompt }}"

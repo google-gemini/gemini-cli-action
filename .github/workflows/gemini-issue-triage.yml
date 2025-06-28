@@ -9,7 +9,7 @@ jobs:
     if: github.event_name == 'issues'
     permissions:
       contents: read
-      issues: write
+      id-token: write
     concurrency:
       group: ${{ github.workflow }}-${{ github.event.issue.number }}
       cancel-in-progress: true
@@ -27,12 +27,27 @@ jobs:
         with:
           token: ${{ steps.generate_token.outputs.token }}
 
+      - name: Configure git user
+        run: |
+          git config user.name "jeropbot[bot]"
+          git config user.email "jeropbot[bot]@users.noreply.github.com"
+
+      - name: Create new branch
+        id: create_branch
+        run: |
+          BRANCH_NAME="gemini/issue-${{ github.event.issue.number }}-${{ github.run_id }}"
+          git checkout -b "$BRANCH_NAME"
+          echo "branch_name=$BRANCH_NAME" >> "$GITHUB_OUTPUT"
+
       - name: Run Gemini Issue Triage
         uses: ./
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         with:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OTLP_GCP_WIF_PROVIDER: ${{ secrets.OTLP_GCP_WIF_PROVIDER }}
+          OTLP_GCP_SERVICE_ACCOUNT: ${{ secrets.OTLP_GCP_SERVICE_ACCOUNT }}
+          OTLP_GOOGLE_CLOUD_PROJECT: ${{ secrets.OTLP_GOOGLE_CLOUD_PROJECT }}
           prompt: |
             You are an issue triage assistant for GitHub issues.
             Your task is to analyze the issue and apply appropriate labels from the repository's list of available labels.
