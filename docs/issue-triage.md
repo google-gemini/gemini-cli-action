@@ -4,8 +4,8 @@ This workflow provides a comprehensive system for triaging GitHub issues using t
 
 ## Features
 
-- **Automated Triage**: When a new issue is opened, the action will automatically analyze it and apply relevant labels.
+- **Automated Triage**: When an issue is opened or reopened, the action will automatically analyze it and apply relevant labels.
 
 ## How it Works
 
-The workflow is defined in `examples/gemini-issue-triage.yml` and is triggered when a new issue is opened.
+The workflow is defined in `examples/gemini-issue-triage.yml` and is triggered when an issue is opened or reopened.

@@ -26,7 +26,7 @@ The best way to get started is to copy one of the pre-built workflows from the [
 
 Here are some of the available examples:
 
-- [`gemini-issue-triage.yml`](./examples/gemini-issue-triage.yml): Automatically analyzes and applies appropriate labels to newly opened issues. Can also be manually triggered by commenting `@gemini /triage`.
+- [`gemini-issue-triage.yml`](./examples/gemini-issue-triage.yml): Automatically analyzes and applies appropriate labels to newly opened or reopened issues.
 
 ## Inputs
 
