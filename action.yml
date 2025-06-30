@@ -22,6 +22,10 @@ inputs:
   settings_json:
     description: 'A JSON string to configure the Gemini CLI. This will be written to .gemini/settings.json.'
     required: false
+  version:
+    description: 'The version of @google/gemini-cli to install.'
+    required: false
+    default: 'latest'
 
 runs:
   using: "composite"
@@ -49,7 +53,7 @@ runs:
       env:
         OTLP_GOOGLE_CLOUD_PROJECT: ${{ inputs.OTLP_GOOGLE_CLOUD_PROJECT }}
 
-    - run: npm install -g @google/gemini-cli
+    - run: npm install -g @google/gemini-cli@${{ inputs.version }}
       shell: bash
 
     - run: gemini --yolo --prompt "${{ inputs.prompt }}"

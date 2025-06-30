@@ -19,6 +19,14 @@ A specific, multi-line prompt to guide Gemini's behavior. This is where you defi
 
 Your Gemini API key. It is strongly recommended that you store this as a [GitHub secret](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions) in your repository.
 
+### `version`
+
+-   **Type:** `string`
+-   **Optional:** `true`
+-   **Default:** `latest`
+
+The version of `@google/gemini-cli` to install. You can specify a version number (e.g., `0.1.0`) or a tag (e.g., `latest`).
+
 ### `settings_json`
 
 -   **Type:** `string` (JSON)

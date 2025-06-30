@@ -30,7 +30,7 @@ Here are some of the available examples:
 
 ## Configuration
 
-This action is configured via inputs in your workflow file. For detailed information on all available inputs and advanced configuration options using `settings_json`, please see the [**Configuration documentation**](./docs/configuration.md).
+This action is configured via inputs in your workflow file. For detailed information on all available inputs, including `version` and advanced configuration options using `settings_json`, please see the [**Configuration documentation**](./docs/configuration.md).
 
 ## Authentication
 
