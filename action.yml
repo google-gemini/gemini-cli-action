@@ -34,8 +34,10 @@ runs:
       if: inputs.settings_json != ''
       run: |
         mkdir -p .gemini
-        echo "${{ inputs.settings_json }}" > .gemini/settings.json
+        echo "$SETTINGS_JSON" > .gemini/settings.json
       shell: bash
+      env:
+        SETTINGS_JSON: ${{ inputs.settings_json }}
 
     - name: Authenticate to Google Cloud for Telemetry 
       if: inputs.OTLP_GCP_WIF_PROVIDER != ''
@@ -53,16 +55,22 @@ runs:
       env:
         OTLP_GOOGLE_CLOUD_PROJECT: ${{ inputs.OTLP_GOOGLE_CLOUD_PROJECT }}
 
-    - name: Run Gemini CLI
+    - name: Install Gemini CLI
+      id: install
       run: |
-        if [[ "${{ inputs.version }}" == "latest" || "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          npx --yes @google/gemini-cli@${{ inputs.version }} --yolo --prompt "${{ inputs.prompt }}"
+        if [[ "${{ inputs.version }}" == "latest" || "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9\.-]+)?(\+[a-zA-Z0-9\.-]+)?$ ]]; then
+          npm install @google/gemini-cli@${{ inputs.version }}
         else
-          npx --yes google-gemini/gemini-cli#${{ inputs.version }} --yolo --prompt "${{ inputs.prompt }}"
+          npm install github:google-gemini/gemini-cli#${{ inputs.version }}
         fi
+      shell: bash
+
+    - name: Run Gemini CLI
+      run: ./node_modules/.bin/gemini --yolo --prompt "$PROMPT"
       shell: bash
       env:
         GEMINI_API_KEY: ${{ inputs.GEMINI_API_KEY }}
+        PROMPT: ${{ inputs.prompt }}
 
 branding:
   icon: 'terminal'

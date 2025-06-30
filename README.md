@@ -24,9 +24,16 @@ To use this action, create a workflow file in your repository (e.g., `.github/wo
 
 The best way to get started is to copy one of the pre-built workflows from the [`/examples`](./examples) directory into your project's `.github/workflows` folder and customize it.
 
-Here are some of the available examples:
+See the sections below for specific examples.
+
+## Issue Triage
+
+This action can be used to automatically triage GitHub issues. For a detailed guide on how to set up the issue triage system, please see the [**Issue Triage documentation**](./docs/issue-triage.md).
+
+Example workflows:
 
 - [`gemini-issue-triage.yml`](./examples/gemini-issue-triage.yml): Automatically analyzes and applies appropriate labels to newly opened or reopened issues.
+- [`gemini-issue-scheduled-triage.yml`](./examples/gemini-issue-scheduled-triage.yml): A scheduled workflow that triages any issues that were missed by the real-time triage.
 
 ## Configuration
 

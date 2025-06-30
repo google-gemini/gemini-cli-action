@@ -6,10 +6,12 @@ on:
 
 jobs:
   triage-issue:
+    timeout-minutes: 5
     if: github.event_name == 'issues'
     permissions:
-      contents: read
       issues: write
+      contents: read
+      id-token: write
     concurrency:
       group: ${{ github.workflow }}-${{ github.event.issue.number }}
       cancel-in-progress: true
@@ -31,15 +33,18 @@ jobs:
         uses: google-gemini/gemini-cli-action@main
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPOSITORY: ${{ github.repository }}
         with:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           settings_json: |
             {
               "coreTools": [
-                "ReadFileTool",
-                "ShellTool(gh label list)",
-                "ShellTool(gh issue edit)"
-              ]
+                "run_shell_command(gh label list)",
+                "run_shell_command(gh issue edit)",
+              ],
             }
           prompt: |
             You are an issue triage assistant for GitHub issues.
@@ -49,27 +54,21 @@ jobs:
 
             **Triage Workflow:**
 
-            1.  **Fetch Available Labels:**
-                - Execute the following shell command to get the list of all labels in the repository:
-                  `gh label list`
+            1. **Fetch Available Labels:**
+               Execute: `gh label list`
 
-            2.  **Analyze the Issue:**
-                - Based on the issue title, body, and any comments, determine the most appropriate labels.
-                - Consider the type of issue (e.g., `kind/bug`, `kind/enhancement`, `kind/documentation`), the area of the codebase it affects (e.g., `area/core`, `area/ux`, `area/tools`), and assess the priority if possible (e.g., `priority/p1`, `priority/p2`).
+            2. **Get Issue Information:**
+               The issue details are available in environment variables:
+               - Repository: $REPOSITORY
+               - Issue Number: $ISSUE_NUMBER
+               - Issue Title: $ISSUE_TITLE
+               - Issue Body: $ISSUE_BODY
 
-            3.  **Apply Labels:**
-                - Use the `gh` command-line tool to add the selected labels to the issue.
-                - Example command: `gh issue edit ${{ github.event.issue.number }} --add-label "kind/bug,area/core"`
-                - You can add multiple labels in a single command.
+            3. **Analyze and Apply Labels:**
+               Based on the issue title and body, determine appropriate labels and apply them using:
+               `gh issue edit $ISSUE_NUMBER --add-label "label1,label2"`
 
             **Guidelines:**
-            - Only use labels that exist in the repository (from the `gh label list` command).
-            - Do not add a comment to the issue.
-            - If no labels seem appropriate, do not apply any.
-
-            **Issue Information:**
-            - Repository: ${{ github.repository }}
-            - Issue Number: ${{ github.event.issue.number }}
-            - Issue Title: ${{ github.event.issue.title }}
-            - Issue Body: ${{ github.event.issue.body }}
-            - Comment (if any): ${{ github.event.comment.body }}
+            - Only use labels that exist in the repository
+            - Do not add comments to the issue
+            - Common label patterns: kind/bug, kind/enhancement, kind/documentation, area/*, priority/*
