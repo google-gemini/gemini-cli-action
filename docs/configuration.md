@@ -25,7 +25,51 @@ Your Gemini API key. It is strongly recommended that you store this as a [GitHub
 -   **Optional:** `true`
 -   **Default:** `latest`
 
-The version of `@google/gemini-cli` to install. You can specify a version number (e.g., `0.1.0`) or a tag (e.g., `latest`).
+The version of `@google/gemini-cli` to execute. Can be a specific version from npm (e.g., '0.1.0', 'latest'), a branch name (e.g., 'main'), or a commit hash.
+
+**Using a specific version from npm:**
+
+```yaml
+- name: Run a specific version of Gemini CLI
+  uses: google-gemini/gemini-cli-action@main
+  with:
+    version: '0.1.0'
+    # ... other inputs
+```
+
+**Using the latest version from npm:**
+
+```yaml
+- name: Run the latest version of Gemini CLI
+  uses: google-gemini/gemini-cli-action@main
+  with:
+    version: 'latest'
+    # ... other inputs
+```
+
+**Using the main branch:**
+
+This is useful for testing the latest, unreleased features.
+
+```yaml
+- name: Run Gemini CLI from the main branch
+  uses: google-gemini/gemini-cli-action@main
+  with:
+    version: 'main'
+    # ... other inputs
+```
+
+**Using a specific commit hash:**
+
+This is useful for pinning the action to a specific commit for stability and reproducibility.
+
+```yaml
+- name: Run Gemini CLI from a specific commit
+  uses: google-gemini/gemini-cli-action@main
+  with:
+    version: 'd8d78d73f9638d11ba8b6ba184b49d4dc7caa8f4'
+    # ... other inputs
+```
 
 ### `settings_json`
 
@@ -34,7 +78,7 @@ The version of `@google/gemini-cli` to install. You can specify a version number
 
 A JSON string that will be written to a `.gemini/settings.json` file in the workspace. This allows you to configure the Gemini CLI's behavior. For a complete list of available settings, refer to the [official Gemini CLI configuration documentation](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/configuration.md).
 
-## `settings.json` Example: Allowlisting Tools
+**Allowlisting Tools**
 
 In automated workflows, it is crucial to allowlist the tools that the Gemini model can access. The `coreTools` setting allows you to define a specific list of tools that are permitted.
 

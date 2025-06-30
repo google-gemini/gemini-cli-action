@@ -44,6 +44,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         with:
+          version: d8d78d73f9638d11ba8b6ba184b49d4dc7caa8f4
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OTLP_GCP_WIF_PROVIDER: ${{ secrets.OTLP_GCP_WIF_PROVIDER }}
           OTLP_GCP_SERVICE_ACCOUNT: ${{ secrets.OTLP_GCP_SERVICE_ACCOUNT }}

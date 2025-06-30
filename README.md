@@ -30,7 +30,7 @@ Here are some of the available examples:
 
 ## Configuration
 
-This action is configured via inputs in your workflow file. For detailed information on all available inputs, including `version` and advanced configuration options using `settings_json`, please see the [**Configuration documentation**](./docs/configuration.md).
+This action is configured via inputs in your workflow file. For detailed information on all available inputs, including the `version` input (which supports executing from npm, a branch, or a commit hash), and advanced configuration options using `settings_json`, please see the [**Configuration documentation**](./docs/configuration.md).
 
 ## Authentication
 
