@@ -1,37 +1,109 @@
 # Observability with OpenTelemetry
 
-This action can be configured to send telemetry data to your own Google Cloud project for observability. This allows you to monitor the performance and behavior of the Gemini CLI within your workflows.
+This action can be configured to send telemetry data (traces, metrics, and logs) to your own Google Cloud project. This allows you to monitor the performance and behavior of the Gemini CLI within your workflows, providing valuable insights for debugging and optimization.
 
 ## Setup
 
-To set up the necessary Google Cloud resources, you can use the provided script. This script will create a service account, grant it the necessary permissions, and configure Workload Identity Federation.
+The recommended way to configure your Google Cloud project is to use the provided setup script. This script automates the creation of all necessary resources, including a dedicated service account and a Workload Identity Federation provider, ensuring a secure, keyless authentication mechanism.
+
+### Automated Setup (Recommended)
+
+Run the following command from the root of this repository. The script is idempotent, meaning it is safe to run multiple times. It will create new resources on the first run and simply update them on subsequent runs.
 
 ```bash
 ./scripts/setup_workload_identity.sh <GCP_PROJECT_ID> <GITHUB_REPO>
 ```
 
-Replace `<GCP_PROJECT_ID>` with your Google Cloud project ID and `<GITHUB_REPO>` with your GitHub repository in the format `owner/repo`.
+-   `<GCP_PROJECT_ID>`: Your Google Cloud project ID.
+-   `<GITHUB_REPO>`: Your GitHub repository in the format `owner/repo`.
 
-The script will output the names and values for the secrets you need to add to your GitHub repository.
+After the script completes, it will output the names and values for three secrets. You must add these to your GitHub repository's secrets to complete the setup.
+
+#### Multi-Organization and Multi-Repository Support
+
+The script is designed to support multiple GitHub organizations and repositories securely:
+
+-   **Provider per Organization**: It creates a unique Workload Identity Provider for each GitHub organization (e.g., `github-provider-<my-org`>).
+-   **Service Account per Organization**: It creates a unique, dedicated Service Account for each organization (e.g., `gh-sa-<my-org>`).
+-   **Permissions per Repository**: It grants permissions on a per-repository basis.
+
+To add another repository, simply re-run the script with the new repository's information.
 
 ### Manual Setup
 
-If you prefer to set up the resources manually, you can follow these steps:
+If you prefer to set up the resources manually, follow these steps. These commands mirror the logic in the automated script.
 
-1.  **Create a Google Cloud Service Account for OTLP**
-2.  **Grant IAM Permissions to the OTLP Service Account**
-3.  **Set Up Workload Identity Federation**
-4.  **Allow the OTLP Service Account to be Impersonated**
-5.  **Configure OTLP-Specific GitHub Secrets**
+1.  **Define Variables:**
 
-For detailed instructions on each of these steps, please refer to the [Google Cloud documentation on Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation).
+    ```bash
+    export GCP_PROJECT_ID="your-gcp-project-id"
+    export GITHUB_REPO="owner/repo"
+    export GITHUB_OWNER=$(echo "$GITHUB_REPO" | cut -d'/' -f1)
+    export WIF_POOL_NAME="github-actions-pool"
+    export WIF_PROVIDER_NAME="github-provider-${GITHUB_OWNER}"
+    export SERVICE_ACCOUNT_NAME="gh-sa-${GITHUB_OWNER}"
+    ```
+
+2.  **Create Workload Identity Pool:**
+
+    ```bash
+    gcloud iam workload-identity-pools create "${WIF_POOL_NAME}" \
+      --project="${GCP_PROJECT_ID}" \
+      --location="global" \
+      --display-name="GitHub Actions Pool"
+    ```
+
+3.  **Create Workload Identity Provider:**
+
+    ```bash
+    gcloud iam workload-identity-pools providers create-oidc "${WIF_PROVIDER_NAME}" \
+      --project="${GCP_PROJECT_ID}" \
+      --location="global" \
+      --workload-identity-pool="${WIF_POOL_NAME}" \
+      --display-name="GitHub WIF - ${GITHUB_OWNER}" \
+      --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" \
+      --attribute-condition="assertion.repository_owner == '${GITHUB_OWNER}'" \
+      --issuer-uri="https://token.actions.githubusercontent.com"
+    ```
+
+4.  **Create Service Account:**
+
+    ```bash
+    gcloud iam service-accounts create "${SERVICE_ACCOUNT_NAME}" \
+      --project="${GCP_PROJECT_ID}" \
+      --display-name="GitHub SA - ${GITHUB_OWNER}"
+    ```
+
+5.  **Grant Service Account Impersonation:**
+
+    ```bash
+    WIF_POOL_ID=$(gcloud iam workload-identity-pools describe "${WIF_POOL_NAME}" --project="${GCP_PROJECT_ID}" --location="global" --format="value(name)")
+    gcloud iam service-accounts add-iam-policy-binding "${SERVICE_ACCOUNT_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+      --project="${GCP_PROJECT_ID}" \
+      --role="roles/iam.workloadIdentityUser" \
+      --member="principalSet://iam.googleapis.com/${WIF_POOL_ID}/attribute.repository/${GITHUB_REPO}"
+    ```
+
+6.  **Grant Necessary Roles to Service Account:**
+
+    ```bash
+    gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
+      --member="serviceAccount:${SERVICE_ACCOUNT_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+      --role="roles/cloudtrace.agent"
+    gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
+      --member="serviceAccount:${SERVICE_ACCOUNT_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+      --role="roles/monitoring.metricWriter"
+    gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
+      --member="serviceAccount:${SERVICE_ACCOUNT_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+      --role="roles/logging.logWriter"
+    ```
 
 ## Inputs
 
 To enable this feature, you will need to provide the following inputs in your GitHub Actions workflow:
 
-- `OTLP_GCP_WIF_PROVIDER`: The Workload Identity Federation provider for authenticating to Google Cloud.
-- `OTLP_GCP_SERVICE_ACCOUNT`: The service account to use for authentication.
-- `OTLP_GOOGLE_CLOUD_PROJECT`: The Google Cloud project where you want to send your telemetry data.
+-   `OTLP_GCP_WIF_PROVIDER`: The full resource name of the Workload Identity Provider.
+-   `OTLP_GCP_SERVICE_ACCOUNT`: The email address of the service account.
+-   `OTLP_GOOGLE_CLOUD_PROJECT`: The Google Cloud project where you want to send your telemetry data.
 
 When enabled, the action will automatically start an OpenTelemetry collector that forwards traces, metrics, and logs to your specified GCP project. You can then use Google Cloud's operations suite (formerly Stackdriver) to visualize and analyze this data.

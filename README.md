@@ -52,7 +52,7 @@ For more information on creating and using GitHub Apps, see the [documentation](
 
 ## Observability with OpenTelemetry
 
-This action can be configured to send telemetry data to your own Google Cloud project for observability. This allows you to monitor the performance and behavior of the Gemini CLI within your workflows.
+This action can be configured to send telemetry data (traces, metrics, and logs) to your own Google Cloud project. This allows you to monitor the performance and behavior of the Gemini CLI within your workflows, providing valuable insights for debugging and optimization.
 
 For detailed instructions on how to set up and configure observability, please see the [Observability documentation](./docs/observability.md).
 

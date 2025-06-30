@@ -11,94 +11,115 @@ if [ "$#" -ne 2 ]; then
     exit 1
 fi
 
-export OTLP_PROJECT_ID="$1"
+export GCP_PROJECT_ID="$1"
 export GITHUB_REPO="$2"
+export GITHUB_OWNER=$(echo "$GITHUB_REPO" | cut -d'/' -f1)
 
-export OTLP_SERVICE_ACCOUNT_NAME="github-otlp-telemetry"
-export OTLP_POOL_NAME="github-actions-pool"
+export WIF_POOL_NAME="github-actions-pool"
+export WIF_PROVIDER_NAME="github-provider-${GITHUB_OWNER}"
+export SERVICE_ACCOUNT_NAME="gh-sa-${GITHUB_OWNER}"
 
-echo "🚀 Starting Workload Identity Federation setup for project '$OTLP_PROJECT_ID' and repo '$GITHUB_REPO'..."
+echo "🚀 Starting Workload Identity Federation setup for project '$GCP_PROJECT_ID' and repo '$GITHUB_REPO'..."
 
-# Step 1: Create a Google Cloud Service Account for OTLP
-echo "
-[Step 1/5] 👤 Checking for service account '${OTLP_SERVICE_ACCOUNT_NAME}'..."
-if ! gcloud iam service-accounts describe ${OTLP_SERVICE_ACCOUNT_NAME}@${OTLP_PROJECT_ID}.iam.gserviceaccount.com --project=${OTLP_PROJECT_ID} &> /dev/null; then
-    echo "Service account not found, creating..."
-    gcloud iam service-accounts create ${OTLP_SERVICE_ACCOUNT_NAME} \
-      --project=${OTLP_PROJECT_ID} \
-      --display-name="GitHub Actions OTLP Telemetry"
-else
-    echo "Service account already exists."
-fi
-
-# Step 2: Grant IAM Permissions to the OTLP Service Account
-echo "
-[Step 2/5] 🔑 Granting IAM permissions to the service account..."
-gcloud projects add-iam-policy-binding ${OTLP_PROJECT_ID} \
-  --member="serviceAccount:${OTLP_SERVICE_ACCOUNT_NAME}@${OTLP_PROJECT_ID}.iam.gserviceaccount.com" \
-  --role="roles/cloudtrace.agent" --condition=None
-gcloud projects add-iam-policy-binding ${OTLP_PROJECT_ID} \
-  --member="serviceAccount:${OTLP_SERVICE_ACCOUNT_NAME}@${OTLP_PROJECT_ID}.iam.gserviceaccount.com" \
-  --role="roles/monitoring.metricWriter" --condition=None
-gcloud projects add-iam-policy-binding ${OTLP_PROJECT_ID} \
-  --member="serviceAccount:${OTLP_SERVICE_ACCOUNT_NAME}@${OTLP_PROJECT_ID}.iam.gserviceaccount.com" \
-  --role="roles/logging.logWriter" --condition=None
-
-# Step 3: Set Up Workload Identity Federation
-echo "
-[Step 3/5] 🔗 Setting up Workload Identity Federation..."
-
-if ! gcloud iam workload-identity-pools describe ${OTLP_POOL_NAME} --project=${OTLP_PROJECT_ID} --location="global" &> /dev/null; then
-    echo "Creating Workload Identity Pool '${OTLP_POOL_NAME}'..."
-    gcloud iam workload-identity-pools create ${OTLP_POOL_NAME} \
-      --project=${OTLP_PROJECT_ID} \
+# Step 1: Create Workload Identity Pool
+echo
+echo "[Step 1/6] 🏊 Creating Workload Identity Pool..."
+if ! gcloud iam workload-identity-pools describe "${WIF_POOL_NAME}" \
+  --project="${GCP_PROJECT_ID}" \
+  --location="global" &> /dev/null; then
+    gcloud iam workload-identity-pools create "${WIF_POOL_NAME}" \
+      --project="${GCP_PROJECT_ID}" \
       --location="global" \
       --display-name="GitHub Actions Pool"
 else
-    echo "Workload Identity Pool '${OTLP_POOL_NAME}' already exists."
+    echo "Workload Identity Pool '${WIF_POOL_NAME}' already exists."
 fi
 
-export OTLP_POOL_ID=$(gcloud iam workload-identity-pools describe ${OTLP_POOL_NAME} \
-  --project=${OTLP_PROJECT_ID} \
+# Step 2: Create Workload Identity Provider
+echo
+echo "[Step 2/6] 🆔 Creating Workload Identity Provider..."
+if ! gcloud iam workload-identity-pools providers describe "${WIF_PROVIDER_NAME}" \
+  --project="${GCP_PROJECT_ID}" \
   --location="global" \
-  --format="value(name)")
-
-if ! gcloud iam workload-identity-pools providers describe "github-provider" --project=${OTLP_PROJECT_ID} --location="global" --workload-identity-pool=${OTLP_POOL_NAME} &> /dev/null; then
-    echo "Creating Workload Identity Provider 'github-provider'..."
-    gcloud iam workload-identity-pools providers create-oidc "github-provider" \
-      --project=${OTLP_PROJECT_ID} \
+  --workload-identity-pool="${WIF_POOL_NAME}" &> /dev/null; then
+    gcloud iam workload-identity-pools providers create-oidc "${WIF_PROVIDER_NAME}" \
+      --project="${GCP_PROJECT_ID}" \
       --location="global" \
-      --workload-identity-pool=${OTLP_POOL_NAME} \
-      --display-name="GitHub Provider" \
-      --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository" \
+      --workload-identity-pool="${WIF_POOL_NAME}" \
+      --display-name="GitHub WIF - ${GITHUB_OWNER}" \
+      --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" \
+      --attribute-condition="assertion.repository_owner == '${GITHUB_OWNER}'" \
       --issuer-uri="https://token.actions.githubusercontent.com"
 else
-    echo "Workload Identity Provider 'github-provider' already exists."
+    echo "Workload Identity Provider '${WIF_PROVIDER_NAME}' already exists. Updating..."
+    gcloud iam workload-identity-pools providers update-oidc "${WIF_PROVIDER_NAME}" \
+      --project="${GCP_PROJECT_ID}" \
+      --location="global" \
+      --workload-identity-pool="${WIF_POOL_NAME}" \
+      --display-name="GitHub WIF - ${GITHUB_OWNER}" \
+      --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" \
+      --attribute-condition="assertion.repository_owner == '${GITHUB_OWNER}'"
 fi
 
-# Step 4: Allow the OTLP Service Account to be Impersonated
-echo "
-[Step 4/5] 🤝 Allowing the service account to be impersonated..."
-gcloud iam service-accounts add-iam-policy-binding "${OTLP_SERVICE_ACCOUNT_NAME}@${OTLP_PROJECT_ID}.iam.gserviceaccount.com" \
-  --project=${OTLP_PROJECT_ID} \
-  --role="roles/iam.workloadIdentityUser" \
-  --member="principalSet://iam.googleapis.com/${OTLP_POOL_ID}/attribute.repository/${GITHUB_REPO}" --condition=None
+# Step 3: Create Service Account
+echo
+echo "[Step 3/6] 👤 Creating Service Account..."
+if ! gcloud iam service-accounts describe "${SERVICE_ACCOUNT_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+  --project="${GCP_PROJECT_ID}" &> /dev/null; then
+    gcloud iam service-accounts create "${SERVICE_ACCOUNT_NAME}" \
+      --project="${GCP_PROJECT_ID}" \
+      --display-name="GitHub SA - ${GITHUB_OWNER}"
+else
+    echo "Service Account '${SERVICE_ACCOUNT_NAME}' already exists."
+fi
 
-# Step 5: Configure OTLP-Specific GitHub Secrets
-echo "
-[Step 5/5] 🤫 Please configure the following secrets in your ${GITHUB_REPO} GitHub repository's settings:"
+# Step 4: Grant Service Account Impersonation
+echo
+echo "[Step 4/6] 🤝 Granting Service Account Impersonation..."
 
-OTLP_GCP_SA_EMAIL="${OTLP_SERVICE_ACCOUNT_NAME}@${OTLP_PROJECT_ID}.iam.gserviceaccount.com"
-OTLP_GCP_WIF_PROVIDER=$(gcloud iam workload-identity-pools providers describe "github-provider" \
-  --project=${OTLP_PROJECT_ID} \
+WIF_POOL_ID=$(gcloud iam workload-identity-pools describe "${WIF_POOL_NAME}" \
+  --project="${GCP_PROJECT_ID}" \
   --location="global" \
-  --workload-identity-pool=${OTLP_POOL_NAME} \
   --format="value(name)")
 
-echo "
-  OTLP_GCP_SERVICE_ACCOUNT: ${OTLP_GCP_SA_EMAIL}"
-echo "  OTLP_GCP_WIF_PROVIDER: ${OTLP_GCP_WIF_PROVIDER}"
-echo "  OTLP_GOOGLE_CLOUD_PROJECT: ${OTLP_PROJECT_ID}"
+gcloud iam service-accounts add-iam-policy-binding "${SERVICE_ACCOUNT_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+  --project="${GCP_PROJECT_ID}" \
+  --role="roles/iam.workloadIdentityUser" \
+  --member="principalSet://iam.googleapis.com/${WIF_POOL_ID}/attribute.repository/${GITHUB_REPO}" --condition=None
 
-echo "
-🎉✨🚀 Setup complete! 🚀✨🎉"
+# Step 5: Grant Service Account Necessary Roles
+echo
+echo "[Step 5/6] 🔑 Granting necessary roles to the service account..."
+gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
+  --member="serviceAccount:${SERVICE_ACCOUNT_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/cloudtrace.agent" --condition=None
+gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
+  --member="serviceAccount:${SERVICE_ACCOUNT_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/monitoring.metricWriter" --condition=None
+gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
+  --member="serviceAccount:${SERVICE_ACCOUNT_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/logging.logWriter" --condition=None
+
+# Step 6: Output GitHub Secrets
+echo
+echo "[Step 6/6] 🤫 Configure the following secrets in your GitHub repository settings:"
+
+WIF_PROVIDER_NAME_FULL=$(gcloud iam workload-identity-pools providers describe "${WIF_PROVIDER_NAME}" \
+  --project="${GCP_PROJECT_ID}" \
+  --location="global" \
+  --workload-identity-pool="${WIF_POOL_NAME}" \
+  --format="value(name)")
+
+echo
+echo "------------------------------------------------------------------"
+echo
+echo "🔑 OTLP_GCP_WIF_PROVIDER: ${WIF_PROVIDER_NAME_FULL}"
+echo
+echo "🤖 OTLP_GCP_SERVICE_ACCOUNT: ${SERVICE_ACCOUNT_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+echo
+echo "☁️ OTLP_GOOGLE_CLOUD_PROJECT: ${GCP_PROJECT_ID}"
+echo
+echo "------------------------------------------------------------------"
+
+echo
+echo "🎉✨🚀 Setup complete! 🚀✨🎉"
