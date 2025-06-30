@@ -2,6 +2,8 @@
 
 This action can be configured to send telemetry data (traces, metrics, and logs) to your own Google Cloud project. This allows you to monitor the performance and behavior of the Gemini CLI within your workflows, providing valuable insights for debugging and optimization.
 
+The action uses its own built-in telemetry system that ensures consistent and reliable telemetry collection across all workflows.
+
 ## Inputs
 
 To enable this feature, you will need to provide the following inputs in your GitHub Actions workflow:

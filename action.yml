@@ -50,7 +50,7 @@ runs:
 
     - name: Run Telemetry Collector for Google Cloud
       if: inputs.OTLP_GCP_WIF_PROVIDER != ''
-      run: node scripts/telemetry.js &
+      run: node "${{ github.action_path }}/scripts/telemetry.js" &
       shell: bash
       env:
         OTLP_GOOGLE_CLOUD_PROJECT: ${{ inputs.OTLP_GOOGLE_CLOUD_PROJECT }}
