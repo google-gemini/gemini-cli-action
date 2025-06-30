@@ -19,10 +19,20 @@ inputs:
   OTLP_GOOGLE_CLOUD_PROJECT:
     description: 'The Google Cloud project for telemetry.'
     required: false
+  settings_json:
+    description: 'A JSON string to configure the Gemini CLI. This will be written to .gemini/settings.json.'
+    required: false
 
 runs:
   using: "composite"
   steps:
+    - name: Configure Gemini CLI
+      if: inputs.settings_json != ''
+      run: |
+        mkdir -p .gemini
+        echo "${{ inputs.settings_json }}" > .gemini/settings.json
+      shell: bash
+
     - name: Authenticate to Google Cloud for Telemetry 
       if: inputs.OTLP_GCP_WIF_PROVIDER != ''
       id: auth
@@ -41,6 +51,7 @@ runs:
 
     - run: npm install -g @google/gemini-cli
       shell: bash
+
     - run: gemini --yolo --prompt "${{ inputs.prompt }}"
       shell: bash
       env:

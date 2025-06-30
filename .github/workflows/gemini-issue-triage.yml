@@ -48,6 +48,14 @@ jobs:
           OTLP_GCP_WIF_PROVIDER: ${{ secrets.OTLP_GCP_WIF_PROVIDER }}
           OTLP_GCP_SERVICE_ACCOUNT: ${{ secrets.OTLP_GCP_SERVICE_ACCOUNT }}
           OTLP_GOOGLE_CLOUD_PROJECT: ${{ secrets.OTLP_GOOGLE_CLOUD_PROJECT }}
+          settings_json: |
+            {
+              "coreTools": [
+                "ReadFileTool",
+                "ShellTool(gh label list)",
+                "ShellTool(gh issue edit)"
+              ]
+            }
           prompt: |
             You are an issue triage assistant for GitHub issues.
             Your task is to analyze the issue and apply appropriate labels from the repository's list of available labels.

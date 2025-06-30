@@ -28,13 +28,9 @@ Here are some of the available examples:
 
 - [`gemini-issue-triage.yml`](./examples/gemini-issue-triage.yml): Automatically analyzes and applies appropriate labels to newly opened or reopened issues.
 
-## Inputs
+## Configuration
 
-- `prompt` (optional): A specific, multi-line prompt to guide Gemini's behavior. This is where you define the persona, workflow, and instructions for the model. The default is `'You are a helpful assistant.'`.
-- `GEMINI_API_KEY` (required): Your Gemini API key, stored as a GitHub secret.
-- `OTLP_GCP_WIF_PROVIDER` (optional): The workload identity provider for GCP authentication.
-- `OTLP_GCP_SERVICE_ACCOUNT` (optional): The service account for GCP authentication.
-- `OTLP_GOOGLE_CLOUD_PROJECT` (optional): The Google Cloud project for telemetry.
+This action is configured via inputs in your workflow file. For detailed information on all available inputs and advanced configuration options using `settings_json`, please see the [**Configuration documentation**](./docs/configuration.md).
 
 ## Authentication
 

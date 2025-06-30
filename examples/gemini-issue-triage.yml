@@ -33,6 +33,14 @@ jobs:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         with:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          settings_json: |
+            {
+              "coreTools": [
+                "ReadFileTool",
+                "ShellTool(gh label list)",
+                "ShellTool(gh issue edit)"
+              ]
+            }
           prompt: |
             You are an issue triage assistant for GitHub issues.
             Your task is to analyze the issue and apply appropriate labels from the repository's list of available labels.
