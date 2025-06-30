@@ -1,19 +1,49 @@
-name: Gemini Issue Triage
+
+name: Scheduled Issue Triage
 
 on:
-  issues:
-    types: [opened, reopened]
+  schedule:
+    - cron: '0 * * * *' # Runs every hour
+  workflow_dispatch: {}
 
 jobs:
+  find-untriaged-issues:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      issues: read
+    outputs:
+      issues: ${{ steps.find_issues.outputs.issues }}
+    steps:
+      - name: Generate GitHub App Token
+        id: generate_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Find untriaged issues
+        id: find_issues
+        env:
+          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+        run: |
+          ISSUE_NUMBERS=$(gh issue list --search "is:open is:issue (no:label or label:\"status/needs-triage\")" --json number -q '. | tojson')
+          echo "issues=$ISSUE_NUMBERS" >> "$GITHUB_OUTPUT"
+
   triage-issue:
-    if: github.event_name == 'issues'
+    needs: find-untriaged-issues
+    if: fromJson(needs.find-untriaged-issues.outputs.issues)[0] != null
+    strategy:
+      matrix:
+        issue: ${{ fromJson(needs.find-untriaged-issues.outputs.issues) }}
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
     concurrency:
-      group: ${{ github.workflow }}-${{ github.event.issue.number }}
+      group: ${{ github.workflow }}-${{ matrix.issue.number }}
       cancel-in-progress: true
-    runs-on: ubuntu-latest
     steps:
       - name: Generate GitHub App Token
         id: generate_token
@@ -63,7 +93,7 @@ jobs:
 
             3.  **Apply Labels:**
                 - Use the `gh` command-line tool to add the selected labels to the issue.
-                - Example command: `gh issue edit ${{ github.event.issue.number }} --add-label "kind/bug,area/core"`
+                - Example command: `gh issue edit ${{ matrix.issue.number }} --add-label "kind/bug,area/core"`
                 - You can add multiple labels in a single command.
 
             **Guidelines:**
@@ -73,7 +103,6 @@ jobs:
 
             **Issue Information:**
             - Repository: ${{ github.repository }}
-            - Issue Number: ${{ github.event.issue.number }}
-            - Issue Title: ${{ github.event.issue.title }}
-            - Issue Body: ${{ github.event.issue.body }}
-            - Comment (if any): ${{ github.event.comment.body }}
+            - Issue Number: ${{ matrix.issue.number }}
+            - Issue Title: ${{ matrix.issue.title }}
+            - Issue Body: ${{ matrix.issue.body }}

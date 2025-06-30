@@ -1,19 +1,48 @@
-name: Gemini Issue Triage
+name: Scheduled Issue Triage
 
 on:
-  issues:
-    types: [opened, reopened]
+  schedule:
+    - cron: '0 * * * *' # Runs every hour
+  workflow_dispatch: {}
 
 jobs:
+  find-untriaged-issues:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      issues: read
+    outputs:
+      issues: ${{ steps.find_issues.outputs.issues }}
+    steps:
+      - name: Generate GitHub App Token
+        id: generate_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Find untriaged issues
+        id: find_issues
+        env:
+          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+        run: |
+          ISSUE_NUMBERS=$(gh issue list --search "is:open is:issue (no:label or label:\"status/needs-triage\")" --json number -q '. | tojson')
+          echo "issues=$ISSUE_NUMBERS" >> "$GITHUB_OUTPUT"
+
   triage-issue:
-    if: github.event_name == 'issues'
+    needs: find-untriaged-issues
+    if: fromJson(needs.find-untriaged-issues.outputs.issues)[0] != null
+    strategy:
+      matrix:
+        issue: ${{ fromJson(needs.find-untriaged-issues.outputs.issues) }}
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
     concurrency:
-      group: ${{ github.workflow }}-${{ github.event.issue.number }}
+      group: ${{ github.workflow }}-${{ matrix.issue.number }}
       cancel-in-progress: true
-    runs-on: ubuntu-latest
     steps:
       - name: Generate GitHub App Token
         id: generate_token
@@ -28,15 +57,11 @@ jobs:
           token: ${{ steps.generate_token.outputs.token }}
 
       - name: Run Gemini Issue Triage
-        uses: ./
+        uses: google-gemini/gemini-cli-action@main
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         with:
-          version: d8d78d73f9638d11ba8b6ba184b49d4dc7caa8f4
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          OTLP_GCP_WIF_PROVIDER: ${{ secrets.OTLP_GCP_WIF_PROVIDER }}
-          OTLP_GCP_SERVICE_ACCOUNT: ${{ secrets.OTLP_GCP_SERVICE_ACCOUNT }}
-          OTLP_GOOGLE_CLOUD_PROJECT: ${{ secrets.OTLP_GOOGLE_CLOUD_PROJECT }}
           settings_json: |
             {
               "coreTools": [
@@ -63,7 +88,7 @@ jobs:
 
             3.  **Apply Labels:**
                 - Use the `gh` command-line tool to add the selected labels to the issue.
-                - Example command: `gh issue edit ${{ github.event.issue.number }} --add-label "kind/bug,area/core"`
+                - Example command: `gh issue edit ${{ matrix.issue.number }} --add-label "kind/bug,area/core"`
                 - You can add multiple labels in a single command.
 
             **Guidelines:**
@@ -73,7 +98,6 @@ jobs:
 
             **Issue Information:**
             - Repository: ${{ github.repository }}
-            - Issue Number: ${{ github.event.issue.number }}
-            - Issue Title: ${{ github.event.issue.title }}
-            - Issue Body: ${{ github.event.issue.body }}
-            - Comment (if any): ${{ github.event.comment.body }}
+            - Issue Number: ${{ matrix.issue.number }}
+            - Issue Title: ${{ matrix.issue.title }}
+            - Issue Body: ${{ matrix.issue.body }}
