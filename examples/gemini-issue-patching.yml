@@ -1,0 +1,313 @@
+name: Gemini Issue Patching
+
+on:
+  issues:
+    types: [opened, reopened]
+
+jobs:
+  patch-issue:
+    timeout-minutes: 30
+    if: github.event_name == 'issues'
+    permissions:
+      issues: write
+      contents: write
+      pull-requests: write
+      id-token: write
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.issue.number }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run Gemini Issue Patching
+        uses: google-gemini/gemini-cli-action@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPOSITORY: ${{ github.repository }}
+        with:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          settings_json: |
+            {
+              "coreTools": [
+                "run_shell_command(git)",
+                "run_shell_command(gh)",
+                "replace",
+                "read_file",
+                "write_file",
+                "list_files"
+              ]
+            }
+          prompt: |
+            You are a FOCUSED automated issue patching assistant for GitHub issues.
+            
+            **CRITICAL INSTRUCTION: You MUST ONLY address the specific issue described below. Do NOT make any other changes, improvements, or optimizations that are not directly related to solving this exact issue.**
+
+            **Issue Information:**
+            - Repository: $REPOSITORY
+            - Issue Number: $ISSUE_NUMBER
+            - Issue Title: $ISSUE_TITLE
+            - Issue Body: $ISSUE_BODY
+
+            **MANDATORY FOCUS REQUIREMENTS:**
+            1. **ONLY** fix the problem described in the issue title and body above
+            2. **DO NOT** make any additional improvements, refactoring, or optimizations
+            3. **DO NOT** fix other issues you might notice in the codebase
+            4. **DO NOT** update dependencies, documentation, or configuration unless specifically mentioned in the issue
+            5. **STAY STRICTLY** within the scope of the reported issue
+
+            **Focused Patching Workflow:**
+
+            1. **Analyze ONLY the Specific Issue:**
+               - Read the issue title: "$ISSUE_TITLE"
+               - Read the issue body: "$ISSUE_BODY"
+               - Identify EXACTLY what needs to be fixed (nothing more, nothing less)
+               - Determine the minimal set of files that need modification for THIS SPECIFIC ISSUE
+
+            2. **Examine ONLY Relevant Code:**
+               - Use `ls -la` to understand project structure
+               - Use `find . -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.java" -o -name "*.go" -o -name "*.rs"` to find source files
+               - Read ONLY the files directly related to the reported issue
+               - Ignore any other code issues you might notice
+
+            3. **Implement ONLY the Required Fix:**
+               - Make the minimal changes necessary to solve the specific issue
+               - Do NOT refactor or improve code beyond what's needed for the fix
+               - Do NOT add features unless explicitly requested in the issue
+               - Ensure the fix directly addresses the problem described in the issue
+
+            4. **Commit the Targeted Changes:**
+               - Stage only the files changed for this specific issue: `git add .`
+               - Create a commit message that references only this issue: `git commit -m "Fix #$ISSUE_NUMBER: [brief description matching the issue]"`
+               - Show the changes: `git diff HEAD~1`
+
+            5. **Verify Fix Scope:**
+               - Confirm that changes address ONLY the reported issue
+               - Print git diff to show what was changed
+               - Use `git log --oneline -1` to show the commit
+
+            **STRICT GUIDELINES:**
+            - Modify ONLY files necessary to fix the specific issue described
+            - Write commit messages that directly reference the issue being fixed
+            - Do NOT make improvements to code quality, performance, or style unless the issue specifically requests it
+            - If the issue description is unclear, add a comment asking for clarification rather than making assumptions
+            - Always show the git diff at the end to demonstrate focused changes
+            - If you find yourself wanting to fix other issues, STOP and focus only on the reported issue
+
+            **FORBIDDEN ACTIONS:**
+            - Making changes not directly related to the issue
+            - Refactoring code for "better practices" unless requested
+            - Fixing other bugs you notice
+            - Updating dependencies unless the issue is about dependencies
+            - Adding new features unless explicitly requested in the issue
+            - Making stylistic or formatting changes unless the issue is about formatting
+
+            **Important Commands:**
+            - `git status` - Check current status
+            - `git add .` - Stage changes (only for this issue)
+            - `git commit -m "Fix #$ISSUE_NUMBER: [description]"` - Commit with issue-specific message
+            - `git diff HEAD~1` - Show the diff of the last commit
+            - `gh issue comment $ISSUE_NUMBER --body "message"` - Add comment if clarification needed
+
+            **REMEMBER: Your success is measured by how precisely you solve ONLY the reported issue, not by how much you improve the overall codebase. AND don't try to build or run test **
+
+      - name: Debug - Show Git Diff
+        id: git-diff
+        if: always()
+        run: |
+          echo "=== Git Status ==="
+          git status
+          
+          echo "=== Git Remote Info ==="
+          git remote -v
+          git branch -a
+          
+          echo "=== Ensure origin/main is up to date ==="
+          git fetch origin main || echo "Failed to fetch origin/main"
+          
+          echo "=== Git Log (Recent commits) ==="
+          git log --oneline -5 || echo "No commits found"
+          
+          echo "=== Git Log (Commits ahead of origin/main) ==="
+          COMMITS_AHEAD=$(git log --oneline origin/main..HEAD 2>/dev/null || git log --oneline HEAD~1..HEAD 2>/dev/null || echo "No commits ahead found")
+          echo "$COMMITS_AHEAD"
+          
+          echo "=== Git Diff (Commits ahead of origin/main) ==="
+          DIFF_OUTPUT=$(git diff origin/main..HEAD 2>/dev/null || git diff HEAD~1..HEAD 2>/dev/null || echo "No diff available")
+          echo "$DIFF_OUTPUT"
+          
+          echo "=== All Changes Made (ahead of origin/main) ==="
+          CHANGES_OUTPUT=$(git diff --name-status origin/main..HEAD 2>/dev/null || git diff --name-status HEAD~1..HEAD 2>/dev/null || echo "No changes found")
+          echo "$CHANGES_OUTPUT"
+          
+          echo "=== Last Commit Details ==="
+          git show --stat HEAD || echo "No commit details available"
+          
+          echo "=== Last Commit Diff ==="
+          LAST_COMMIT_DIFF=$(git show HEAD --format="" 2>/dev/null || echo "No commit diff available")
+          echo "$LAST_COMMIT_DIFF"
+          
+          # Use the best available diff output for PR body
+          if [[ -n "$DIFF_OUTPUT" && "$DIFF_OUTPUT" != "No diff available" ]]; then
+            FINAL_DIFF="$DIFF_OUTPUT"
+          else
+            FINAL_DIFF="$LAST_COMMIT_DIFF"
+          fi
+          
+          if [[ -n "$CHANGES_OUTPUT" && "$CHANGES_OUTPUT" != "No changes found" ]]; then
+            FINAL_CHANGES="$CHANGES_OUTPUT"
+          else
+            FINAL_CHANGES=$(git diff --name-status HEAD~1..HEAD 2>/dev/null || echo "No changes detected")
+          fi
+          
+          # Save outputs for use in PR body
+          {
+            echo 'DIFF_OUTPUT<<EOF'
+            echo "$FINAL_DIFF"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+          
+          {
+            echo 'CHANGES_OUTPUT<<EOF'
+            echo "$FINAL_CHANGES"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        if: success()
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Fix #${{ github.event.issue.number }}: ${{ github.event.issue.title }}"
+          title: "Fix #${{ github.event.issue.number }}: ${{ github.event.issue.title }}"
+          body: |
+            ## Automated Issue Fix
+            
+            This pull request was automatically generated to address issue #${{ github.event.issue.number }}.
+            
+            **Original Issue:**
+            - **Title:** ${{ github.event.issue.title }}
+            - **Reporter:** @${{ github.event.issue.user.login }}
+            - **Issue URL:** ${{ github.event.issue.html_url }}
+            
+            **Changes Made:**
+            The Gemini AI assistant analyzed the issue and implemented the following changes:
+            
+            **Files Modified:**
+            ```
+            ${{ steps.git-diff.outputs.CHANGES_OUTPUT }}
+            ```
+            
+            **Detailed Changes:**
+            ```diff
+            ${{ steps.git-diff.outputs.DIFF_OUTPUT }}
+            ```
+            
+            **Review Instructions:**
+            1. Please review the changes carefully
+            2. Test the fix locally if possible
+            3. Verify that the changes address the original issue
+            4. Check for any potential side effects or breaking changes
+            
+            **Auto-generated by:** Gemini Issue Patching Workflow
+            
+            Closes #${{ github.event.issue.number }}
+          branch: fix/issue-${{ github.event.issue.number }}
+          delete-branch: true
+          draft: false
+          reviewers: ${{ github.repository_owner }}
+          labels: |
+            automated-fix
+            bug-fix
+            needs-review
+
+      - name: Comment on Issue
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue_number = context.issue.number;
+            const repo = context.repo;
+            
+            await github.rest.issues.createComment({
+              owner: repo.owner,
+              repo: repo.repo,
+              issue_number: issue_number,
+              body: `🤖 **Automated Fix Generated**
+              
+              I've analyzed this issue and created a pull request with a potential fix:
+              
+              **Pull Request:** Will be linked automatically once created
+              
+              The fix has been implemented using AI analysis of your issue description. Please review the changes and test them in your environment.
+              
+              **Files Modified:**
+              \`\`\`
+              ${{ steps.git-diff.outputs.CHANGES_OUTPUT }}
+              \`\`\`
+              
+              **Changes Made:**
+              \`\`\`diff
+              ${{ steps.git-diff.outputs.DIFF_OUTPUT }}
+              \`\`\`
+              
+              **Next Steps:**
+              1. Review the pull request
+              2. Test the changes locally
+              3. Provide feedback or approve the changes
+              4. Merge if the fix resolves the issue
+              
+              If the automated fix doesn't fully address your issue, please provide additional details and I can attempt another solution.`
+            });
+
+      - name: Handle Failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue_number = context.issue.number;
+            const repo = context.repo;
+            
+            await github.rest.issues.createComment({
+              owner: repo.owner,
+              repo: repo.repo,
+              issue_number: issue_number,
+              body: `🚫 **Automated Fix Failed**
+              
+              I attempted to analyze and fix this issue automatically, but encountered an error during the process.
+              
+              **Possible reasons:**
+              - The issue description may need more specific details
+              - The fix might require human intervention
+              - There could be complex dependencies or architectural considerations
+              
+              **Recommended actions:**
+              1. Please provide more specific details about the issue
+              2. Include steps to reproduce the problem
+              3. Specify the expected vs actual behavior
+              4. Add relevant code snippets or error messages
+              
+              A human developer will need to review this issue manually.`
+            });
+            
+            // Add labels to indicate manual review needed
+            await github.rest.issues.addLabels({
+              owner: repo.owner,
+              repo: repo.repo,
+              issue_number: issue_number,
+              labels: ['needs-manual-review', 'automated-fix-failed']
+            });
