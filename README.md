@@ -28,12 +28,13 @@ See the sections below for specific examples.
 
 ## Issue Triage
 
-This action can be used to automatically triage GitHub issues. For a detailed guide on how to set up the issue triage system, please see the [**Issue Triage documentation**](./docs/issue-triage.md).
+This action can be used to triage GitHub issues automatically or on a schedule. For a detailed guide on how to set up the issue triage system, please see the [**Issue Triage documentation**](./docs/issue-triage.md).
 
-Example workflows:
+## Pull Request Review
 
-- [`gemini-issue-automated-triage.yml`](./examples/gemini-issue-automated-triage.yml): Automatically analyzes and applies appropriate labels to newly opened or reopened issues.
-- [`gemini-issue-scheduled-triage.yml`](./examples/gemini-issue-scheduled-triage.yml): A scheduled workflow that triages any issues that were missed by the real-time triage.
+This action can be used to automatically review pull requests when they are opened, synchronized, or reopened. Additionally, users with `OWNER`, `MEMBER`, or `COLLABORATOR` permissions can trigger a review by commenting `@gemini-cli /review` in a pull request.
+
+For a detailed guide on how to set up the pull request review system, please see the [**Pull Request Review documentation**](./docs/pr-review.md).
 
 ## Configuration
 
