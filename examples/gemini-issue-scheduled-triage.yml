@@ -45,6 +45,8 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         with:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OTLP_GCP_WIF_PROVIDER: ${{ secrets.OTLP_GCP_WIF_PROVIDER }}
+          OTLP_GOOGLE_CLOUD_PROJECT: ${{ secrets.OTLP_GOOGLE_CLOUD_PROJECT }}
           settings_json: |
             {
               "coreTools": [
@@ -52,6 +54,11 @@ jobs:
                 "run_shell_command(gh issue edit)",
                 "run_shell_command(gh issue list)"
               ],
+              "telemetry": {
+                "enabled": true,
+                "target": "gcp"
+              },
+              "sandbox": false
             }
           prompt: |
             You are an issue triage assistant for GitHub issues.

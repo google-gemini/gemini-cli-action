@@ -47,7 +47,6 @@ jobs:
           version: 0.1.8-rc.0
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OTLP_GCP_WIF_PROVIDER: ${{ secrets.OTLP_GCP_WIF_PROVIDER }}
-          OTLP_GCP_SERVICE_ACCOUNT: ${{ secrets.OTLP_GCP_SERVICE_ACCOUNT }}
           OTLP_GOOGLE_CLOUD_PROJECT: ${{ secrets.OTLP_GOOGLE_CLOUD_PROJECT }}
           settings_json: |
             {
@@ -56,6 +55,11 @@ jobs:
                 "run_shell_command(gh issue edit)",
                 "run_shell_command(gh issue list)"
               ],
+              "telemetry": {
+                "enabled": true,
+                "target": "gcp"
+              },
+              "sandbox": false
             }
           prompt: |
             You are an issue triage assistant. Analyze issues and apply appropriate labels.

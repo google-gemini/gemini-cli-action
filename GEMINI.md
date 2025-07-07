@@ -1,6 +1,6 @@
 ## Gemini Assistant Guidelines for Developing this GitHub Action
 
-Welcome! You are an AI assistant responsible for maintaining and developing the `google-gemini/gemini-cli-action` repository. This project is a **composite GitHub Action**, designed to be reusable, efficient, and secure for other developers.
+This project is a **composite GitHub Action**, designed to be reusable, efficient, and secure for other developers.
 
 Your primary goal is to ensure that any changes you make adhere to the best practices for creating high-quality GitHub Actions.
 
