@@ -32,7 +32,7 @@ This action can be used to automatically triage GitHub issues. For a detailed gu
 
 Example workflows:
 
-- [`gemini-issue-triage.yml`](./examples/gemini-issue-triage.yml): Automatically analyzes and applies appropriate labels to newly opened or reopened issues.
+- [`gemini-issue-automated-triage.yml`](./examples/gemini-issue-automated-triage.yml): Automatically analyzes and applies appropriate labels to newly opened or reopened issues.
 - [`gemini-issue-scheduled-triage.yml`](./examples/gemini-issue-scheduled-triage.yml): A scheduled workflow that triages any issues that were missed by the real-time triage.
 
 ## Configuration
@@ -51,13 +51,17 @@ When you create your GitHub App, you must grant it the correct permissions for y
 
 **Important**: The permissions above are a baseline for the examples. If you create custom workflows that interact with the GitHub API in other ways (e.g., modifying projects, creating branches, managing deployments), you must update your GitHub App's permissions to grant the necessary access. Always follow the principle of least privilege, granting only the permissions your specific workflow requires.
 
-For more information on creating and using GitHub Apps, see the [documentation](https://docs.github.com/en/developers/apps).
+For more information on creating and using GitHub Apps, see the [documentation](https://docs.github.com/en/apps).
 
 ## Observability with OpenTelemetry
 
 This action can be configured to send telemetry data (traces, metrics, and logs) to your own Google Cloud project. This allows you to monitor the performance and behavior of the Gemini CLI within your workflows, providing valuable insights for debugging and optimization.
 
 For detailed instructions on how to set up and configure observability, please see the [Observability documentation](./docs/observability.md).
+
+### Google Cloud Authentication
+
+To use observability features with Google Cloud, you'll need to set up Workload Identity Federation. For detailed setup instructions, see the [Workload Identity Federation documentation](./docs/workload-identity.md).
 
 ## Customization
 

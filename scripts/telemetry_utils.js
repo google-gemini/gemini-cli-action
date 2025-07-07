@@ -3,13 +3,10 @@ import fs from 'fs';
 import net from 'net';
 import os from 'os';
 import { execSync } from 'child_process';
-import { fileURLToPath } from 'url';
 import crypto from 'node:crypto';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const projectRoot = path.resolve(__dirname, '..');
+// Use the current working directory (user's project) instead of the action's directory
+const projectRoot = process.cwd();
 const projectHash = crypto
   .createHash('sha256')
   .update(projectRoot)
@@ -24,11 +21,9 @@ const WORKSPACE_GEMINI_DIR = path.join(projectRoot, '.gemini');
 export const OTEL_DIR = path.join(USER_GEMINI_DIR, 'tmp', projectHash, 'otel');
 export const BIN_DIR = path.join(OTEL_DIR, 'bin');
 
-// Workspace settings remain in the project's .gemini directory
-export const WORKSPACE_SETTINGS_FILE = path.join(
-  WORKSPACE_GEMINI_DIR,
-  'settings.json',
-);
+// For GitHub Actions, we'll try both locations: user home first, then project
+export const USER_SETTINGS_FILE = path.join(USER_GEMINI_DIR, 'settings.json');
+export const WORKSPACE_SETTINGS_FILE = path.join(WORKSPACE_GEMINI_DIR, 'settings.json');
 
 export function getJson(url) {
   const tmpFile = path.join(
@@ -41,7 +36,18 @@ export function getJson(url) {
       { stdio: 'pipe' },
     );
     const content = fs.readFileSync(tmpFile, 'utf-8');
-    return JSON.parse(content);
+    
+    if (!content || content.trim() === '') {
+      throw new Error(`Empty response from ${url}`);
+    }
+    
+    try {
+      return JSON.parse(content);
+    } catch (parseError) {
+      console.error(`Failed to parse JSON response from ${url}:`);
+      console.error(`Content: ${content.substring(0, 500)}${content.length > 500 ? '...' : ''}`);
+      throw parseError;
+    }
   } catch (e) {
     console.error(`Failed to fetch or parse JSON from ${url}`);
     throw e;
@@ -131,7 +137,6 @@ export async function ensureBinary(
   repo,
   assetNameCallback,
   binaryNameInArchive,
-  isJaeger = false,
 ) {
   const executablePath = path.join(BIN_DIR, executableName);
   if (fileExists(executablePath)) {
@@ -145,67 +150,32 @@ export async function ensureBinary(
   const arch = process.arch === 'x64' ? 'amd64' : process.arch;
   const ext = platform === 'windows' ? 'zip' : 'tar.gz';
 
-  if (isJaeger && platform === 'windows' && arch === 'arm64') {
-    console.warn(
-      `⚠️ Jaeger does not have a release for Windows on ARM64. Skipping.`,
+  console.log(`🔍 Getting latest release for ${repo}...`);
+  const release = getJson(`https://api.github.com/repos/${repo}/releases/latest`);
+  
+  if (!release || !release.tag_name) {
+    throw new Error(
+      `Could not get latest release information for ${repo}. Release data: ${JSON.stringify(release)}`,
     );
-    return null;
   }
-
-  let release;
-  let asset;
-
-  if (isJaeger) {
-    console.log(`🔍 Finding latest Jaeger v2+ asset...`);
-    const releases = getJson(`https://api.github.com/repos/${repo}/releases`);
-    const sortedReleases = releases
-      .filter((r) => !r.prerelease && r.tag_name.startsWith('v'))
-      .sort((a, b) => {
-        const aVersion = a.tag_name.substring(1).split('.').map(Number);
-        const bVersion = b.tag_name.substring(1).split('.').map(Number);
-        for (let i = 0; i < Math.max(aVersion.length, bVersion.length); i++) {
-          if ((aVersion[i] || 0) > (bVersion[i] || 0)) return -1;
-          if ((aVersion[i] || 0) < (bVersion[i] || 0)) return 1;
-        }
-        return 0;
-      });
-
-    for (const r of sortedReleases) {
-      const expectedSuffix =
-        platform === 'windows'
-          ? `-${platform}-${arch}.zip`
-          : `-${platform}-${arch}.tar.gz`;
-      const foundAsset = r.assets.find(
-        (a) =>
-          a.name.startsWith('jaeger-2.') && a.name.endsWith(expectedSuffix),
-      );
-
-      if (foundAsset) {
-        release = r;
-        asset = foundAsset;
-        console.log(
-          `⬇️  Found ${asset.name} in release ${r.tag_name}, downloading...`,
-        );
-        break;
-      }
-    }
-    if (!asset) {
-      throw new Error(
-        `Could not find a suitable Jaeger v2 asset for platform ${platform}/${arch}.`,
-      );
-    }
-  } else {
-    release = getJson(`https://api.github.com/repos/${repo}/releases/latest`);
-    const version = release.tag_name.startsWith('v')
-      ? release.tag_name.substring(1)
-      : release.tag_name;
-    const assetName = assetNameCallback(version, platform, arch, ext);
-    asset = release.assets.find((a) => a.name === assetName);
-    if (!asset) {
-      throw new Error(
-        `Could not find a suitable asset for ${repo} (version ${version}) on platform ${platform}/${arch}. Searched for: ${assetName}`,
-      );
-    }
+  
+  const version = release.tag_name.startsWith('v')
+    ? release.tag_name.substring(1)
+    : release.tag_name;
+  const assetName = assetNameCallback(version, platform, arch, ext);
+  
+  if (!release.assets || !Array.isArray(release.assets)) {
+    throw new Error(
+      `Release ${release.tag_name} for ${repo} has no assets. Assets: ${JSON.stringify(release.assets)}`,
+    );
+  }
+  
+  const asset = release.assets.find((a) => a && a.name === assetName);
+  if (!asset) {
+    const availableAssets = release.assets.map(a => a.name).join(', ');
+    throw new Error(
+      `Could not find asset "${assetName}" for ${repo} (version ${version}) on platform ${platform}/${arch}. Available assets: ${availableAssets}`,
+    );
   }
 
   const downloadUrl = asset.browser_download_url;
@@ -236,8 +206,9 @@ export async function ensureBinary(
     });
 
     if (!foundBinaryPath) {
+      const contents = fs.readdirSync(tmpDir).join(', ');
       throw new Error(
-        `Could not find binary "${nameToFind}" in extracted archive at ${tmpDir}. Contents: ${fs.readdirSync(tmpDir).join(', ')}`,
+        `Could not find binary "${nameToFind}" in extracted archive at ${tmpDir}. Contents: ${contents}`,
       );
     }
 
@@ -257,92 +228,9 @@ export async function ensureBinary(
   }
 }
 
-export function manageTelemetrySettings(
-  enable,
-  oTelEndpoint = 'http://localhost:4317',
-  target = 'local',
-  originalSandboxSettingToRestore,
-) {
-  if (!fileExists(WORKSPACE_GEMINI_DIR)) {
-    fs.mkdirSync(WORKSPACE_GEMINI_DIR, { recursive: true });
-  }
-
-  const workspaceSettings = readJsonFile(WORKSPACE_SETTINGS_FILE);
-  const currentSandboxSetting = workspaceSettings.sandbox;
-  let settingsModified = false;
-
-  if (typeof workspaceSettings.telemetry !== 'object') {
-    workspaceSettings.telemetry = {};
-  }
-
-  if (enable) {
-    if (workspaceSettings.telemetry.enabled !== true) {
-      workspaceSettings.telemetry.enabled = true;
-      settingsModified = true;
-      console.log('⚙️  Enabled telemetry in workspace settings.');
-    }
-    if (workspaceSettings.sandbox !== false) {
-      workspaceSettings.sandbox = false;
-      settingsModified = true;
-      console.log('✅ Disabled sandbox mode for telemetry.');
-    }
-    if (workspaceSettings.telemetry.otlpEndpoint !== oTelEndpoint) {
-      workspaceSettings.telemetry.otlpEndpoint = oTelEndpoint;
-      settingsModified = true;
-      console.log(`🔧 Set telemetry OTLP endpoint to ${oTelEndpoint}.`);
-    }
-    if (workspaceSettings.telemetry.target !== target) {
-      workspaceSettings.telemetry.target = target;
-      settingsModified = true;
-      console.log(`🎯 Set telemetry target to ${target}.`);
-    }
-  } else {
-    if (workspaceSettings.telemetry.enabled === true) {
-      delete workspaceSettings.telemetry.enabled;
-      settingsModified = true;
-      console.log('⚙️  Disabled telemetry in workspace settings.');
-    }
-    if (workspaceSettings.telemetry.otlpEndpoint) {
-      delete workspaceSettings.telemetry.otlpEndpoint;
-      settingsModified = true;
-      console.log('🔧 Cleared telemetry OTLP endpoint.');
-    }
-    if (workspaceSettings.telemetry.target) {
-      delete workspaceSettings.telemetry.target;
-      settingsModified = true;
-      console.log('🎯 Cleared telemetry target.');
-    }
-    if (Object.keys(workspaceSettings.telemetry).length === 0) {
-      delete workspaceSettings.telemetry;
-    }
-
-    if (
-      originalSandboxSettingToRestore !== undefined &&
-      workspaceSettings.sandbox !== originalSandboxSettingToRestore
-    ) {
-      workspaceSettings.sandbox = originalSandboxSettingToRestore;
-      settingsModified = true;
-      console.log('✅ Restored original sandbox setting.');
-    }
-  }
-
-  if (settingsModified) {
-    writeJsonFile(WORKSPACE_SETTINGS_FILE, workspaceSettings);
-    console.log('✅ Workspace settings updated.');
-  } else {
-    console.log(
-      enable
-        ? '✅ Workspace settings are already configured for telemetry.'
-        : '✅ Workspace settings already reflect telemetry disabled.',
-    );
-  }
-  return currentSandboxSetting;
-}
-
 export function registerCleanup(
   getProcesses,
   getLogFileDescriptors,
-  originalSandboxSetting,
 ) {
   let cleanedUp = false;
   const cleanup = () => {
@@ -350,8 +238,6 @@ export function registerCleanup(
     cleanedUp = true;
 
     console.log('\n👋 Shutting down...');
-
-    manageTelemetrySettings(false, null, originalSandboxSetting);
 
     const processes = getProcesses ? getProcesses() : [];
     processes.forEach((proc) => {

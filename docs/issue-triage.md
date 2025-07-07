@@ -16,7 +16,7 @@ To implement this issue triage system in your repository, you will need to do th
 
 1.  **Create the Workflows**: Copy the example workflow files into your repository's `.github/workflows` directory.
 
-    *   `examples/gemini-issue-triage.yml`
+    *   `examples/gemini-issue-automated-triage.yml`
     *   `examples/gemini-issue-scheduled-triage.yml`
 
 2.  **Configure Secrets**: The workflows require secrets for authentication. You will need to create the following secrets in your repository's settings:
@@ -31,7 +31,7 @@ To implement this issue triage system in your repository, you will need to do th
 
 ### Real-Time Issue Triage
 
-This workflow is defined in `examples/gemini-issue-triage.yml` and is triggered when an issue is opened or reopened. It uses the Gemini CLI to analyze the issue and apply relevant labels.
+This workflow is defined in `examples/gemini-issue-automated-triage.yml` and is triggered when an issue is opened or reopened. It uses the Gemini CLI to analyze the issue and apply relevant labels.
 
 ### Scheduled Issue Triage
 

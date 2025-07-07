@@ -13,17 +13,19 @@ inputs:
   OTLP_GCP_WIF_PROVIDER:
     description: 'The workload identity provider for GCP authentication.'
     required: false
-  OTLP_GCP_SERVICE_ACCOUNT:
-    description: 'The service account for GCP authentication.'
-    required: false
   OTLP_GOOGLE_CLOUD_PROJECT:
     description: 'The Google Cloud project for telemetry.'
     required: false
   settings_json:
-    description: 'A JSON string to configure the Gemini CLI. This will be written to .gemini/settings.json.'
+    description: |
+      A JSON string to configure the Gemini CLI. This will be written to .gemini/settings.json.
+      To enable observability with Google Cloud, include:
+      {"telemetry": {"enabled": true, "target": "gcp"}, "sandbox": false}
     required: false
   version:
-    description: "The version of @google/gemini-cli to execute. Can be a specific version from npm (e.g., '0.1.0', 'latest'), a branch name (e.g., 'main'), or a commit hash."
+    description: |
+      The version of @google/gemini-cli to execute.
+      Can be a specific version from npm (e.g., '0.1.0', 'latest'), a branch name (e.g., 'main'), or a commit hash.
     required: false
     default: 'latest'
 
@@ -46,11 +48,10 @@ runs:
       with:
         project_id: ${{ inputs.OTLP_GOOGLE_CLOUD_PROJECT }}
         workload_identity_provider: ${{ inputs.OTLP_GCP_WIF_PROVIDER }}
-        service_account: ${{ inputs.OTLP_GCP_SERVICE_ACCOUNT }}
 
-    - name: Run Telemetry Collector for Google Cloud
+    - name: Setup Telemetry Collector for Google Cloud
       if: inputs.OTLP_GCP_WIF_PROVIDER != ''
-      run: node "${{ github.action_path }}/scripts/telemetry.js" &
+      run: node "${{ github.action_path }}/scripts/telemetry.js"
       shell: bash
       env:
         OTLP_GOOGLE_CLOUD_PROJECT: ${{ inputs.OTLP_GOOGLE_CLOUD_PROJECT }}
