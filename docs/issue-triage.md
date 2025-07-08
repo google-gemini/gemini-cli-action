@@ -4,6 +4,31 @@ This document describes a comprehensive system for triaging GitHub issues using 
 
 ## How it Works
 
+```mermaid
+graph TD
+    subgraph "Triggers"
+        A[Issue Opened or Reopened]
+        B[Scheduled Cron Job]
+        C[Manual Dispatch]
+    end
+
+    subgraph "Gemini CLI Action"
+        D[Get Issue Details]
+        E{Issue needs triage?}
+        F[Analyze Issue with Gemini]
+        G[Apply Labels]
+    end
+
+    A --> D
+    B --> D
+    C --> D
+    D --> E
+    E -- Yes --> F
+    F --> G
+    E -- No --> J((End))
+    G --> J
+```
+
 The two workflows work together to ensure that all new and existing issues are triaged in a timely manner.
 
 1.  **Real-Time Triage**: When a new issue is opened or reopened, a GitHub Actions workflow is triggered. This workflow uses the Gemini CLI to analyze the issue and apply the most appropriate labels. This provides immediate feedback and categorization of new issues.

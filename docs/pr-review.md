@@ -32,6 +32,31 @@ Copy the workflow file to `.github/workflows/gemini-pr-review.yml` in your repos
 
 ## Usage
 
+```mermaid
+graph TD
+    subgraph "Triggers"
+        A[PR Opened, Reopened, Synchronized]
+        B[Comment with '@gemini-cli /review']
+        C[Manual Dispatch via Actions UI]
+    end
+
+    subgraph "Gemini CLI Action"
+        D[Generate GitHub App Token]
+        E[Checkout PR Code]
+        F[Get PR Details & Changed Files]
+        G[Run Gemini PR Review Analysis]
+        H[Post Review to PR]
+    end
+    
+    A --> D
+    B --> D
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+    G --> H
+```
+
 ### Automatic Reviews
 
 The workflow automatically triggers on:
