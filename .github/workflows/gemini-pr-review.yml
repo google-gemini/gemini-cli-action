@@ -64,7 +64,7 @@ jobs:
             ADDITIONAL_INSTRUCTIONS=$(echo "$COMMENT_BODY" | sed 's/.*@gemini-cli \/review//' | xargs)
           fi
           echo "additional_instructions=$ADDITIONAL_INSTRUCTIONS" >> "$GITHUB_OUTPUT"
-          
+
           # Get PR details
           PR_DATA=$(gh pr view $PR_NUMBER --json title,body,additions,deletions,changedFiles,baseRefName,headRefName)
           echo "pr_data=$PR_DATA" >> "$GITHUB_OUTPUT"
@@ -128,16 +128,6 @@ jobs:
             Once you have the information, provide a comprehensive code review by:
             1. Writing your review to a file: write_file("review.md", "<your detailed review feedback here>")
             2. Posting the review: gh pr comment $PR_NUMBER --body-file review.md --repo $REPOSITORY
-
-            Review Guidelines:
-            - Focus on code quality, security, performance, and maintainability
-            - Check for common issues: potential bugs, security vulnerabilities, performance bottlenecks
-            - Verify error handling and edge cases
-            - Look for code style and best practices
-            - Comment on architecture and design decisions if significant
-            - Be constructive and specific in feedback
-            - Highlight both issues and positive aspects
-            - Suggest improvements with examples when possible
             
             Review Areas:
             - **Security**: Authentication, authorization, input validation, data sanitization
@@ -188,6 +178,3 @@ jobs:
             - Mention specific good practices or implementations
             - Acknowledge well-written code sections
             - Note improvements from previous versions
-
-            ---
-            *Review completed by Gemini CLI*
