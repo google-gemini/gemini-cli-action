@@ -70,4 +70,4 @@ Create a `GEMINI.md` file in the root of your repository to provide project-spec
 
 ## Contributing
 
-Contributions are welcome! Please open an issue or submit a pull request with your improvements.
+Contributions are welcome! Please see our [**Contributing Guide**](./CONTRIBUTING.md) for more details on how to get started.
