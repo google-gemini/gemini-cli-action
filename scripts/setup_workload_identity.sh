@@ -250,6 +250,12 @@ gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
     --member="${PRINCIPAL_SET}" \
     --condition=None
 
+print_info "Granting vertex permissions..."
+gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
+    --role="roles/aiplatform.admin" \
+    --member="${PRINCIPAL_SET}" \
+    --condition=None
+
 print_success "Standard permissions granted to Workload Identity Pool"
 
 # Get the full provider name for output
@@ -282,6 +288,12 @@ echo "🔑 Secret Name: OTLP_GCP_WIF_PROVIDER"
 echo "   Secret Value: ${WIF_PROVIDER_FULL}"
 echo ""
 echo "☁️  Secret Name: OTLP_GOOGLE_CLOUD_PROJECT"
+echo "   Secret Value: ${GCP_PROJECT_ID}"
+echo ""
+echo "☁️ Secret Name: GOOGLE_CLOUD_LOCATION"
+echo "   Secret Value: global"
+echo ""
+echo "☁️  Secret Name: GOOGLE_CLOUD_PROJECT"
 echo "   Secret Value: ${GCP_PROJECT_ID}"
 echo ""
 
