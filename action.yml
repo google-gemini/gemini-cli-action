@@ -10,6 +10,12 @@ inputs:
   GEMINI_API_KEY:
     description: 'Your Gemini API key.'
     required: true
+  GOOGLE_CLOUD_PROJECT:
+    description: 'The Google Cloud project.'
+    required: false
+  GOOGLE_CLOUD_LOCATION:
+    description: 'The Google Cloud project.'
+    required: false
   OTLP_GCP_WIF_PROVIDER:
     description: 'The workload identity provider for GCP authentication.'
     required: false
@@ -80,7 +86,10 @@ runs:
         gemini --yolo --prompt "$PROMPT"
       shell: bash
       env:
-        GEMINI_API_KEY: ${{ inputs.GEMINI_API_KEY }}
+        # GEMINI_API_KEY: ${{ inputs.GEMINI_API_KEY }}
+        GOOGLE_GENAI_USE_VERTEXAI: true
+        GOOGLE_CLOUD_PROJECT: ${{ inputs.GOOGLE_CLOUD_PROJECT }}
+        GOOGLE_CLOUD_LOCATION: ${{ inputs.GOOGLE_CLOUD_LOCATION }}
         PROMPT: ${{ inputs.prompt }}
 
 branding:
