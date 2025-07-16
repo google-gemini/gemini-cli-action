@@ -35,7 +35,7 @@ Copy the workflow file to `.github/workflows/gemini-pr-review.yml` in your repos
 ```mermaid
 graph TD
     subgraph "Triggers"
-        A[PR Opened, Reopened, Synchronized]
+        A[PR Opened]
         B[Comment with '@gemini-cli /review']
         C[Manual Dispatch via Actions UI]
     end
@@ -61,8 +61,6 @@ graph TD
 
 The workflow automatically triggers on:
 - **New PRs**: When a pull request is opened
-- **PR Updates**: When new commits are pushed to the PR
-- **PR Reopening**: When a closed PR is reopened
 
 ### Manual Reviews
 
