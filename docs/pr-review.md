@@ -1,6 +1,33 @@
 # PR Review with Gemini CLI
 
-This document explains how to use the Gemini CLI action to automatically review pull requests with AI-powered code analysis.
+This document explains how to use the Gemini CLI on GitHub to automatically review pull requests with AI-powered code analysis.
+
+- [PR Review with Gemini CLI](#pr-review-with-gemini-cli)
+  - [Overview](#overview)
+  - [Features](#features)
+  - [Setup](#setup)
+    - [Prerequisites](#prerequisites)
+    - [Workflow File](#workflow-file)
+  - [Usage](#usage)
+    - [Supported Triggers](#supported-triggers)
+    - [Automatic Reviews](#automatic-reviews)
+    - [Manual Reviews](#manual-reviews)
+    - [Custom Review Instructions](#custom-review-instructions)
+    - [Manual Workflow Dispatch](#manual-workflow-dispatch)
+  - [Review Output Format](#review-output-format)
+    - [📋 Review Summary](#-review-summary)
+    - [🔍 General Feedback](#-general-feedback)
+    - [🎯 Specific Feedback](#-specific-feedback)
+    - [✅ Highlights](#-highlights)
+  - [Review Areas](#review-areas)
+  - [Configuration](#configuration)
+    - [Workflow Customization](#workflow-customization)
+    - [Review Prompt Customization](#review-prompt-customization)
+  - [Examples](#examples)
+    - [Basic Review Request](#basic-review-request)
+    - [Security-Focused Review](#security-focused-review)
+    - [Performance Review](#performance-review)
+    - [Breaking Changes Check](#breaking-changes-check)
 
 ## Overview
 
@@ -32,29 +59,43 @@ Copy the workflow file to `.github/workflows/gemini-pr-review.yml` in your repos
 
 ## Usage
 
+### Supported Triggers
+
+The Gemini PR Review workflow is triggered by:
+
+- **New PRs**: When a pull request is opened
+- **PR Review Comments**: When a review comment contains `@gemini-cli /review`
+- **PR Reviews**: When a review body contains `@gemini-cli /review`
+- **Issue Comments**: When a comment on a PR contains `@gemini-cli /review`
+- **Manual Dispatch**: Via the GitHub Actions UI ("Run workflow")
+
 ```mermaid
-graph TD
-    subgraph "Triggers"
+flowchart TD
+    subgraph Triggers
         A[PR Opened]
-        B[Comment with '@gemini-cli /review']
-        C[Manual Dispatch via Actions UI]
+        B[PR Review Comment with '@gemini-cli /review']
+        C[PR Review with '@gemini-cli /review']
+        D[Issue Comment with '@gemini-cli /review']
+        E[Manual Dispatch via Actions UI]
     end
 
-    subgraph "Gemini CLI Action"
-        D[Generate GitHub App Token]
-        E[Checkout PR Code]
-        F[Get PR Details & Changed Files]
-        G[Run Gemini PR Review Analysis]
-        H[Post Review to PR]
+    subgraph "Gemini CLI on GitHub"
+        F[Generate GitHub App Token]
+        G[Checkout PR Code]
+        H[Get PR Details & Changed Files]
+        I[Run Gemini PR Review Analysis]
+        J[Post Review to PR]
     end
-    
-    A --> D
-    B --> D
-    C --> D
-    D --> E
+
+    A --> F
+    B --> F
+    C --> F
+    D --> F
     E --> F
     F --> G
     G --> H
+    H --> I
+    I --> J
 ```
 
 ### Automatic Reviews
@@ -125,29 +166,13 @@ Priority-based issues (only shown if issues exist):
 
 ## Review Areas
 
-The AI analyzes multiple dimensions of code quality:
+Gemini CLI analyzes multiple dimensions of code quality:
 
 - **Security**: Authentication, authorization, input validation, data sanitization
 - **Performance**: Algorithms, database queries, caching, resource usage
 - **Reliability**: Error handling, logging, testing coverage, edge cases
 - **Maintainability**: Code structure, documentation, naming conventions
 - **Functionality**: Logic correctness, requirements fulfillment
-
-## Best Practices
-
-### For Repository Maintainers
-
-1. **Set Clear Guidelines**: Establish coding standards and review criteria for your project
-2. **Use Custom Instructions**: Provide specific focus areas when requesting reviews
-3. **Combine with Human Review**: Use AI reviews as a complement to, not replacement for, human code review
-4. **Review AI Feedback**: AI suggestions should be evaluated for relevance and accuracy
-
-### For Contributors
-
-1. **Self-Review First**: Review your own code before requesting AI review
-2. **Address Feedback**: Take AI suggestions seriously and address valid points
-3. **Ask Questions**: Use custom instructions to get specific guidance on areas of concern
-4. **Test Thoroughly**: Ensure your code is tested before requesting review
 
 ## Configuration
 
@@ -167,34 +192,6 @@ The AI prompt can be customized to:
 - Emphasize particular coding standards
 - Include project-specific guidelines
 - Adjust review depth and focus areas
-
-## Troubleshooting
-
-### Common Issues
-
-**Review not triggering**:
-- Check that secrets are properly configured
-- Verify the user has required permissions for manual triggers
-- Ensure the workflow file is in the correct location
-
-**Authentication errors**:
-- Verify `APP_ID` and `PRIVATE_KEY` secrets are correct
-- Check that the GitHub App has necessary permissions
-
-**API errors**:
-- Confirm `GEMINI_API_KEY` is valid and has sufficient quota
-- Check API rate limits and usage
-
-**Missing review output**:
-- Check workflow logs for errors
-- Verify the PR has actual code changes to review
-
-### Getting Help
-
-1. Check workflow run logs in the Actions tab
-2. Review the [main documentation](../README.md)
-3. Check the [configuration guide](configuration.md)
-4. Open an issue for bugs or feature requests
 
 ## Examples
 
