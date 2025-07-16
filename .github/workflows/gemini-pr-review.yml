@@ -101,8 +101,7 @@ jobs:
                 "enabled": true,
                 "target": "gcp"
               },
-              "sandbox": false,
-              "selectedAuthType": "vertex-ai"
+              "sandbox": false
             }
           prompt: |
             You are an expert code reviewer. You have access to shell commands to gather PR information and perform the review.
