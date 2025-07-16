@@ -1,4 +1,4 @@
-name: Gemini PR Review
+name: 🧐 Gemini Pull Request Review
 
 on:
   issue_comment:
@@ -30,16 +30,16 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: generate_token
+        if: ${{ vars.APP_ID }}
         uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ secrets.APP_ID }}
+          app-id: ${{ vars.APP_ID }}
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout PR code
         uses: actions/checkout@v4
         with:
-          token: ${{ steps.generate_token.outputs.token }}
-          ref: ${{ github.event.pull_request.head.sha }}
+          token: ${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Get PR details

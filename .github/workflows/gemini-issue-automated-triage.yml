@@ -1,4 +1,4 @@
-name: Gemini Automated Issue Triage
+name: 🏷️ Gemini Automated Issue Triage
 
 on:
   issues:
@@ -18,20 +18,21 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: generate_token
+        if: ${{ vars.APP_ID }}
         uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ secrets.APP_ID }}
+          app-id: ${{ vars.APP_ID }}
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ steps.generate_token.outputs.token }}
+          token: ${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}
 
       - name: Run Gemini Issue Triage
         uses: ./
         env:
-          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
@@ -57,13 +58,14 @@ jobs:
             You are an issue triage assistant. Analyze the current GitHub issue and apply the most appropriate existing labels.
 
             Steps:
-            1. Run: `gh label list --limit 100` to get all available labels.
+            1. Run: `gh label list` to get all available labels.
             2. Review the issue title and body provided in the environment variables.
-            3. Select the most relevant labels from the existing labels, focusing on kind/*, area/*, and priority/*.
+            3. Select the most relevant labels from the existing labels. If available, set labels that follow the `kind/*`, `area/*`, and `priority/*` patterns.
             4. Apply the selected labels to this issue using: `gh issue edit ISSUE_NUMBER --add-label "label1,label2"`
+            5. If the `status/needs-triage` label is present, remove it using: `gh issue edit ISSUE_NUMBER --remove-label "status/needs-triage"`
 
             Guidelines:
             - Only use labels that already exist in the repository.
             - Do not add comments or modify the issue content.
             - Triage only the current issue.
-            - Assign all applicable kind/*, area/*, and priority/* labels based on the issue content.
+            - Assign all applicable labels based on the issue content.
