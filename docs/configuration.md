@@ -2,6 +2,8 @@
 
 You can customize the behavior of the Gemini CLI Action by using the available inputs in your GitHub workflow file. For advanced use cases, you can provide a JSON object to the `settings_json` input to control the underlying Gemini CLI.
 
+For details on creating a custom GitHub App, see the [**GitHub App creation documentation**](./github-app.md).
+
 ## Action Inputs
 
 ### `prompt`

@@ -42,17 +42,12 @@ This action is configured via inputs in your workflow file. For detailed informa
 
 ## Authentication
 
-This action uses the `gh` CLI to interact with the GitHub API. You'll need to provide it with a token that has the necessary permissions for your use case.
+This action requires a GitHub token to interact with the GitHub API. You can authenticate in two ways:
 
-When you create your GitHub App, you must grant it the correct permissions for your intended use cases. The permissions below are required for the provided example workflows to function correctly.
+1.  **Custom GitHub App (Recommended):** For the most secure and flexible authentication, we recommend creating a custom GitHub App.
+2.  **Default `GITHUB_TOKEN`:** For simpler use cases, the action can use the default `GITHUB_TOKEN` provided by the workflow.
 
-- **Repository permissions:**
-  - **Contents**: `Read-only` - Allows the action to check out code and read repository files.
-  - **Issues**: `Read & write` - Allows the action to read issue details and then comment on or label them.
-
-**Important**: The permissions above are a baseline for the examples. If you create custom workflows that interact with the GitHub API in other ways (e.g., modifying projects, creating branches, managing deployments), you must update your GitHub App's permissions to grant the necessary access. Always follow the principle of least privilege, granting only the permissions your specific workflow requires.
-
-For more information on creating and using GitHub Apps, see the [documentation](https://docs.github.com/en/apps).
+For a detailed guide on how to set up authentication, including creating a custom app and the required permissions, please see the [**Authentication documentation**](./docs/github-app.md).
 
 ## Observability with OpenTelemetry
 
