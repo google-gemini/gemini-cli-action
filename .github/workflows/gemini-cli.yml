@@ -1,0 +1,140 @@
+name: Gemini CLI
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  gemini-cli:
+    if: |
+      (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@gemini-cli') && !contains(github.event.comment.body, '/review') && !contains(github.event.comment.body, '/triage')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@gemini-cli') && !contains(github.event.comment.body, '/review') && !contains(github.event.comment.body, '/triage')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@gemini-cli') && !contains(github.event.comment.body, '/review') && !contains(github.event.comment.body, '/triage'))) && 
+        (
+          github.event.comment.author_association == 'OWNER' ||
+          github.event.comment.author_association == 'MEMBER' ||
+          github.event.comment.author_association == 'COLLABORATOR'
+        )
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Generate GitHub App Token
+        id: generate_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Get PR branch
+        id: get_pr_branch
+        env:
+          GH_TOKEN: ${{ steps.generate_token.outputs.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
+            PR_NUMBER=${{ github.event.issue.number }}
+            BRANCH=$(gh pr view "$PR_NUMBER" --json headRefName -q .headRefName --repo "$REPOSITORY")
+            echo "name=$BRANCH" >> $GITHUB_OUTPUT
+          else
+            echo "name=${{ github.event.pull_request.head.ref }}" >> $GITHUB_OUTPUT
+          fi
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
+          ref: ${{ steps.get_pr_branch.outputs.name }}
+          fetch-depth: 0
+
+      - name: Get PR details
+        id: get_pr
+        env:
+          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            PR_NUMBER=${{ github.event.inputs.pr_number }}
+          elif [ "${{ github.event_name }}" = "issue_comment" ]; then
+            PR_NUMBER=${{ github.event.issue.number }}
+          else
+            PR_NUMBER=${{ github.event.pull_request.number }}
+          fi
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          # Get PR details
+          PR_DATA=$(gh pr view $PR_NUMBER --json title,body,additions,deletions,changedFiles,baseRefName,headRefName)
+          echo "pr_data=$PR_DATA" >> "$GITHUB_OUTPUT"
+          # Get file changes
+          CHANGED_FILES=$(gh pr diff $PR_NUMBER --name-only)
+          echo "changed_files<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$CHANGED_FILES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+      - name: Acknowledge request
+        env:
+          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.get_pr.outputs.pr_number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          gh pr comment $PR_NUMBER --body "I've received your request and I'm working on it now! 🤖" --repo $REPOSITORY
+      - name: Run Gemini
+        uses: google-gemini/gemini-cli-action@main
+        env:
+          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+          REPOSITORY: ${{ github.repository }}
+          USER_REQUEST: ${{github.event.comment.body}}
+          PR_NUMBER: ${{ steps.get_pr.outputs.pr_number }}
+        with:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OTLP_GCP_WIF_PROVIDER: ${{ secrets.OTLP_GCP_WIF_PROVIDER }}
+          OTLP_GOOGLE_CLOUD_PROJECT: ${{ secrets.OTLP_GOOGLE_CLOUD_PROJECT }}
+          settings_json: |
+            {
+              "coreTools": [
+                "run_shell_command(echo)",
+                "run_shell_command(gh pr view)",
+                "run_shell_command(gh pr diff)",
+                "run_shell_command(gh pr comment)",
+                "run_shell_command(cat)",
+                "run_shell_command(head)",
+                "run_shell_command(tail)",
+                "run_shell_command(grep)",
+                "run_shell_command(git config)",
+                "run_shell_command(git status)",
+                "run_shell_command(git add)",
+                "run_shell_command(git commit)",
+                "run_shell_command(git push)",
+                "run_shell_command(git diff)",
+                "write_file"
+              ],
+              "telemetry": {
+                "enabled": true,
+                "target": "gcp"
+              },
+              "sandbox": false
+            }
+          prompt: |
+            IMPORTANT: Use the available shell commands to gather information if needed. Do not ask for information to be
+            provided.
+            Start by running these commands to gather the required data:
+              1. Run: echo "$USER_REQUEST" to get the user request
+              2. Run: echo "$REPOSITORY to get the repository
+              3. Run: echo "$PR_NUMBER" to get the PR number
+              3. For any specific files, use: cat filename, head -50 filename, or tail -50 filename
+            Answer the $USER_REQUEST;
+            Once you are ready to provide a response, follow the steps bellow to do so:
+            1. If you have made any modifications to files, add them using 'git add .' IMPORTANT: do not add response.md file.
+            2. Commit the changes with a descriptive message using 'git commit -m "your commit message"'.
+            3. Push the changes to the branch using 'git push'.
+            4. Writing your response to a file: write_file("response.md", "<your response here>")
+            5. Posting the response: gh pr comment $PR_NUMBER --body-file response.md --repo $REPOSITORY
