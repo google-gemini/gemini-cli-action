@@ -101,7 +101,6 @@ jobs:
           USER_REQUEST: ${{github.event.comment.body}}
           PR_NUMBER: ${{ steps.get_pr.outputs.pr_number }}
         with:
-          version: 0.1.8-rc.0
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OTLP_GCP_WIF_PROVIDER: ${{ secrets.OTLP_GCP_WIF_PROVIDER }}
           OTLP_GOOGLE_CLOUD_PROJECT: ${{ secrets.OTLP_GOOGLE_CLOUD_PROJECT }}
