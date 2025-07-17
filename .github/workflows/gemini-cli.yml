@@ -100,7 +100,6 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           USER_REQUEST: ${{github.event.comment.body}}
           PR_NUMBER: ${{ steps.get_pr.outputs.pr_number }}
-          ACTION_PATH: ${{ github.action_path }}
         with:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OTLP_GCP_WIF_PROVIDER: ${{ secrets.OTLP_GCP_WIF_PROVIDER }}
@@ -143,7 +142,7 @@ jobs:
             Answer the $USER_REQUEST;
 
             Once you are ready to provide a response, follow the steps bellow to do so:
-            1. If you have made any modifications to files, add them using 'git add .'.
+            1. If you have made any modifications to files, add them using 'git add .' IMPORTANT: do not add response.md file.
             2. Commit the changes with a descriptive message using 'git commit -m "your commit message"'.
             3. Push the changes to the branch using 'git push'.
             4. Writing your response to a file: write_file("response.md", "<your response here>")
