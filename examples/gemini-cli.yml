@@ -14,14 +14,28 @@ jobs:
   gemini-cli:
     if: |
       (
-        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@gemini-cli') && !contains(github.event.comment.body, '/review') && !contains(github.event.comment.body, '/triage')) ||
-        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@gemini-cli') && !contains(github.event.comment.body, '/review') && !contains(github.event.comment.body, '/triage')) ||
-        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@gemini-cli') && !contains(github.event.comment.body, '/review') && !contains(github.event.comment.body, '/triage'))) && 
         (
-          github.event.comment.author_association == 'OWNER' ||
-          github.event.comment.author_association == 'MEMBER' ||
-          github.event.comment.author_association == 'COLLABORATOR'
+          github.event_name == 'issue_comment' &&
+          contains(github.event.comment.body, '@gemini-cli') &&
+          !contains(github.event.comment.body, '/review') &&
+          !contains(github.event.comment.body, '/triage') &&
+          (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'COLLABORATOR')
+        ) ||
+        (
+          github.event_name == 'pull_request_review_comment' &&
+          contains(github.event.comment.body, '@gemini-cli') &&
+          !contains(github.event.comment.body, '/review') &&
+          !contains(github.event.comment.body, '/triage') &&
+          (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'COLLABORATOR')
+        ) ||
+        (
+          github.event_name == 'pull_request_review' &&
+          contains(github.event.review.body, '@gemini-cli') &&
+          !contains(github.event.review.body, '/review') &&
+          !contains(github.event.review.body, '/triage') &&
+          (github.event.review.author_association == 'OWNER' || github.event.review.author_association == 'MEMBER' || github.event.review.author_association == 'COLLABORATOR')
         )
+      )
     timeout-minutes: 15
     runs-on: ubuntu-latest
     permissions:
@@ -71,17 +85,40 @@ jobs:
           else
             PR_NUMBER=${{ github.event.pull_request.number }}
           fi
-
           echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
 
-          # Get PR details
+          COMMENT_BODY=""
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            COMMENT_BODY="${{ github.event.comment.body }}"
+          elif [ "${{ github.event_name }}" = "pull_request_review_comment" ]; then
+            COMMENT_BODY="${{ github.event.comment.body }}"
+          elif [ "${{ github.event_name }}" = "pull_request_review" ]; then
+            COMMENT_BODY="${{ github.event.review.body }}"
+          fi
+          echo "comment_body<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$COMMENT_BODY" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
           PR_DATA=$(gh pr view $PR_NUMBER --json title,body,additions,deletions,changedFiles,baseRefName,headRefName)
           echo "pr_data=$PR_DATA" >> "$GITHUB_OUTPUT"
 
-          # Get file changes
           CHANGED_FILES=$(gh pr diff $PR_NUMBER --name-only)
           echo "changed_files<<EOF" >> "$GITHUB_OUTPUT"
           echo "$CHANGED_FILES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Get PR Comments
+        id: get_pr_comments
+        if: contains(steps.get_pr.outputs.comment_body, 'approved') && contains(steps.get_pr.outputs.comment_body, 'plan#')
+        env:
+          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.get_pr.outputs.pr_number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          COMMENTS=$(gh pr view $PR_NUMBER --json comments -q '.comments[].body' --repo $REPOSITORY)
+          echo "comments<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$COMMENTS" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Acknowledge request
@@ -98,8 +135,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
           REPOSITORY: ${{ github.repository }}
-          USER_REQUEST: ${{github.event.comment.body}}
+          USER_REQUEST: ${{ steps.get_pr.outputs.comment_body }}
           PR_NUMBER: ${{ steps.get_pr.outputs.pr_number }}
+          PR_COMMENTS: ${{ steps.get_pr_comments.outputs.comments }}
         with:
           version: 0.1.8-rc.0
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -131,20 +169,48 @@ jobs:
               "sandbox": false
             }
           prompt: |
-            IMPORTANT: Use the available shell commands to gather information if needed. Do not ask for information to be
-            provided.
+            You are a software engineer AI assistant.
 
-            Start by running these commands to gather the required data:
-              1. Run: echo "$USER_REQUEST" to get the user request
-              2. Run: echo "$REPOSITORY to get the repository
-              3. Run: echo "$PR_NUMBER" to get the PR number
-              3. For any specific files, use: cat filename, head -50 filename, or tail -50 filename
+            **Context:**
+            - User Request: "$USER_REQUEST"
+            - Repository: "$REPOSITORY"
+            - PR Number: "$PR_NUMBER"
+            - PR Comments (only available on plan approval): "$PR_COMMENTS"
 
-            Answer the $USER_REQUEST;
+            **Workflow:**
 
-            Once you are ready to provide a response, follow the steps bellow to do so:
-            1. If you have made any modifications to files, add them using 'git add .' IMPORTANT: do not add response.md file.
-            2. Commit the changes with a descriptive message using 'git commit -m "your commit message"'.
-            3. Push the changes to the branch using 'git push'.
-            4. Writing your response to a file: write_file("response.md", "<your response here>")
-            5. Posting the response: gh pr comment $PR_NUMBER --body-file response.md --repo $REPOSITORY
+            1.  **Analyze Request:**
+                *   If the `$USER_REQUEST` contains "plan#", it's an approval for a plan. Go to step 3.
+                *   If the `$USER_REQUEST` contains the word "plan", it's a request to create a new plan. Go to step 2.
+                *   Otherwise, it's a direct request to execute. Go to step 4.
+
+            2.  **Create Plan:**
+                *   Analyze the user's request to create a detailed, step-by-step execution plan.
+                *   Use `gh pr view $PR_NUMBER --json comments` to find previous plans and determine the next plan number (e.g., if `plan#1` exists, the new one is `plan#2`). If no plans exist, start with `plan#1`.
+                *   Create a unique ID for the plan (e.g., `plan#1`).
+                *   Post the plan to the PR using `gh pr comment`. The message MUST be formatted like this:
+                    ```
+                    **Plan `plan#1`**
+
+                    1. Step one...
+                    2. Step two...
+                    3. Step three...
+
+                    To approve this plan, please reply with the following comment:
+                    `@gemini-cli plan#1 approved`
+                    ```
+                *   After posting the plan, STOP. Do not proceed with implementation.
+
+            3.  **Approve and Execute Plan:**
+                *   The user has approved the plan via a comment like `@gemini-cli plan#1 approved`.
+                *   The full plan is available in the `$PR_COMMENTS` variable. You must find the comment containing the plan ID from the user's request.
+                *   Execute the steps from the approved plan.
+
+            4.  **Direct Execution:**
+                *   Fulfill the `$USER_REQUEST` directly.
+
+            **Implementation Guide:**
+            *   Use the available tools to perform the work.
+            *   If you modify files, use `git add .` (but not for `response.md`), `git commit`, and `git push`.
+            *   For your final response, write it to a file: `write_file("response.md", "<your response here>")`.
+            *   Post the response to the PR: `gh pr comment $PR_NUMBER --body-file response.md --repo $REPOSITORY`.
