@@ -100,6 +100,7 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           USER_REQUEST: ${{github.event.comment.body}}
           PR_NUMBER: ${{ steps.get_pr.outputs.pr_number }}
+          ACTION_PATH: ${{ github.action_path }}
         with:
           version: 0.1.8-rc.0
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -125,26 +126,35 @@ jobs:
                 "write_file"
               ],
               "telemetry": {
-                "enabled": true,
+                "enabled": false,
                 "target": "gcp"
               },
               "sandbox": false
             }
           prompt: |
-            IMPORTANT: Use the available shell commands to gather information if needed. Do not ask for information to be
-            provided.
+            IMPORTANT: Use the available shell commands to gather information if needed. Do not ask for information to be provided.
 
-            Start by running these commands to gather the required data:
-              1. Run: echo "$USER_REQUEST" to get the user request
-              2. Run: echo "$REPOSITORY to get the repository
-              3. Run: echo "$PR_NUMBER" to get the PR number
-              3. For any specific files, use: cat filename, head -50 filename, or tail -50 filename
+            **Workflow Modes:**
 
-            Answer the $USER_REQUEST;
+            1.  **Execution Mode (Default):**
+                *   Analyze the `$USER_REQUEST` and perform the required actions.
 
-            Once you are ready to provide a response, follow the steps bellow to do so:
-            1. If you have made any modifications to files, add them using 'git add .' IMPORTANT: do not add response.md file.
-            2. Commit the changes with a descriptive message using 'git commit -m "your commit message"'.
-            3. Push the changes to the branch using 'git push'.
-            4. Writing your response to a file: write_file("response.md", "<your response here>")
-            5. Posting the response: gh pr comment $PR_NUMBER --body-file response.md --repo $REPOSITORY
+            2.  **Planning Mode:**
+                *   **Trigger:** If the `$USER_REQUEST` is asking for you to plan some implementation.
+                *   **Action:**
+                    1.  Create a step-by-step plan. Give it a unique ID like `plan#1`, `plan#2`, etc.
+                    2.  Post the plan as a PR comment. The comment must end with instructions on how to approve it, for example: `To approve this plan, please reply with: @gemini-cli plan#1 approved`
+                    3.  **STOP** and wait for approval. Do not execute the plan yet.
+
+            3.  **Approval Mode:**
+                *   **Trigger:** If the `$USER_REQUEST` includes "approved" and a plan ID (e.g., `@gemini-cli plan#1 approved`).
+                *   **Action:**
+                    1.  The PR comments are available in the `$PR_COMMENTS` environment variable.
+                    2.  Find the comment containing the original plan that matches the approved plan ID.
+                    3.  Execute the steps outlined in that plan.
+
+            **Execution Steps:**
+            *   Start by gathering data: `echo "$USER_REQUEST"`, `echo "$REPOSITORY"`, `echo "$PR_NUMBER"`.
+            *   For files, use `cat`, `head`, or `tail`.
+            *   If you make code changes, use `git add .`, `git commit -m "..."`, and `git push`.
+            *   Write your final response to `response.md` and post it with `gh pr comment $PR_NUMBER --body-file response.md`.
