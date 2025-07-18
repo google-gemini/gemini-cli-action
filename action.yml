@@ -92,6 +92,7 @@ runs:
       env:
         GEMINI_API_KEY: ${{ inputs.GEMINI_API_KEY }}
         PROMPT: ${{ inputs.prompt }}
+        SURFACE: GitHub
 
 branding:
   icon: 'terminal'
