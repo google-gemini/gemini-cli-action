@@ -87,7 +87,6 @@ runs:
       shell: bash
       env:
         GEMINI_API_KEY: ${{ inputs.GEMINI_API_KEY }}
-        # GOOGLE_GENAI_USE_VERTEXAI: true
         GOOGLE_CLOUD_PROJECT: ${{ inputs.GOOGLE_CLOUD_PROJECT }}
         GOOGLE_CLOUD_LOCATION: ${{ inputs.GOOGLE_CLOUD_LOCATION }}
         PROMPT: ${{ inputs.prompt }}
