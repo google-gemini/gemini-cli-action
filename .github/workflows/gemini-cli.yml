@@ -1,4 +1,4 @@
-name: Gemini CLI
+name: 💬 Gemini CLI
 
 on:
   issue_comment:
